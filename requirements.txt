@@ -1,0 +1,7 @@
+alembic
+fastapi
+llama-index-readers-confluence
+llama-index-utils-workflow
+llama-index-core
+llama-index-readers-jira
+llama-index-llms-google-genai
