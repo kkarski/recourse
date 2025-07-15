@@ -16,7 +16,7 @@ import os
 import json
 
 # Load JTBD criteria from file (at module load)
-with open("src/story/story-criteria.v1.md", "r") as f:
+with open("req/recourse/standards/story-criteria.v1.md", "r") as f:
     JTBD_CRITERIA = f.read()
 
 
