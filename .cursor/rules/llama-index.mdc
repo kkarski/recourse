@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- Follow https://docs.llamaindex.ai/en/stable/examples/llm/google_genai/ when working with Gemini Pro calls
+- Follow https://docs.llamaindex.ai/en/stable/understanding/workflows/state/ when working with llama-index workflow state
+- Follow https://docs.llamaindex.ai/en/stable/understanding/workflows/basic_flow/ when building llama-index workflows

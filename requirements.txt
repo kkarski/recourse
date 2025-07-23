@@ -5,3 +5,4 @@ llama-index-utils-workflow
 llama-index-core
 llama-index-readers-jira
 llama-index-llms-google-genai
+dotenv
