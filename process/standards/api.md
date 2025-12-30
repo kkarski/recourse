@@ -1,0 +1,9 @@
+- **DO** Use singular resource names, not plural in REST endpoints
+- **DO** Correctly map and apply POST, PUT, DELETE, PATCH and GET functionality
+- **DO** DELETE operations by default are soft delete with an optional flag for hard delete
+- **DO** Protect REST endpoints with JWT token validation with specified scope unless explicitly made public
+- **DO** Use pydantic classes for request and response body payloads
+- **DO** Use correct HTTP error response codes
+- **DO NOT** return a body in error responses unless specified
+- **DO** include a location header in create 201 responses to the created resource
+- **DO** Compute and return eTag headers with all POST, GET operations
