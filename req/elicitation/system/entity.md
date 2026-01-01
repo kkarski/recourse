@@ -8,22 +8,15 @@
 4. Do we require email/phone verification before account activation?
 5. How do users recover forgotten passwords or locked accounts?
 
-### Business Logic & User Lifecycle
-6. What triggers user account creation? (self-registration, admin creation, invitation?)
-7. What are the key states a user can be in? (pending, active, suspended, deleted?)
+### Business Logic & Entity Lifecycle
+
+6. What triggers entity creation? (self-registration, admin creation, invitation?)
+7. What are the key states the entity be in? (pending, active, suspended, deleted?)
+8. What limitations or abilities does each state unloock?
 8. What business rules govern user behavior? (trial periods, subscription limits, usage quotas?)
 9. How do users relate to other entities? (teams, organizations, projects, content?)
+10. How does the entity come to an end? What other entities are affected by this entity's end of life?
 10. What events should trigger automated actions? (welcome emails, notifications, cleanup?)
-
-## Phase 2: Access Control & Permissions
-**Build on identity to define what users can do**
-
-### Authorization & Permissions
-11. What roles exist in our system? (admin, manager, user, guest?)
-12. Are permissions role-based, attribute-based, or resource-based?
-13. Can users belong to multiple roles or groups simultaneously?
-14. How granular should permissions be? (feature-level, resource-level, field-level?)
-15. Who can modify user permissions and roles?
 
 ## Phase 3: Data & Profile Management
 **Define what information we store and how**

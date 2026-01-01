@@ -1,0 +1,8 @@
+{
+  "name": "taxiway",
+  "description": "A plugin for better spec driven development",
+  "version": "1.0.0",
+  "author": {
+    "name": "Krzysztof Karski"
+  }
+}

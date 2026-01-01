@@ -1,9 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-- Keep alembic entity classes in [model.py](mdc:src/recourse/model.py) 
-- Keep llama-index workflow event classes in their respective workflow file
-- Keep external trigger events in [event.py](mdc:src/recourse/story/event.py) 
-- Use specific exception types rather than generic alembic errors from [exception.py](mdc:src/recourse/exception.py) 

@@ -1,6 +1,0 @@
-fastapi
-llama-index-utils-workflow
-llama-index-core
-llama-index-llms-google-genai
-dotenv
-pydantic

@@ -2,6 +2,8 @@
 
 Philosophy:
 - The product requirements are the prompt
+- The better the plan, the better the outcome
+- Output optimized for AI model consumption, not humans
 
 Observed code gen behavior:
 - The more detailed the prompt, the better the results
@@ -24,6 +26,7 @@ Problems with the SDLC:
 Better Code Gen Planning:
 - Start discovering what code will need to change earlier
 - Continuously update the implementation plan as requirements change or the underlying code base changes
+- Instant feedback to understand up front what implications different product decisions will have
 
 Test Planning:
 - Test cases written for how the code works rather than how the feature is supposed to work
@@ -31,6 +34,22 @@ Test Planning:
 - Missing detailed assertions in test cases proving the code is correct
 - Missing end to end test cases proving features work when integrated with one another
 - Insufficient test coverage
+- Trace test cases to source requirements for better adherence
+- Do not allow change of test cases
+
+Optimizing for AI:
+
+- Separate product requirements and success criteria (PM) from system architecture choices and technical requirements (Eng)
+- Product requirements are the prompt
+- Technical requirements are the system prompt (RAG)
+- Quote from requirements when writing test cases for tracability and better instruction following
+
+- Implementation order
+  - Domain modeling and breakdown (domain driven design)
+  - Entity model
+  - Database schema
+  - API
+  - Integration test cases
 
 Additional Reading:  
 https://ordep.dev/posts/writing-code-was-never-the-bottleneck
