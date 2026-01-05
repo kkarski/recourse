@@ -45,8 +45,10 @@ Use when:
 PM Workflow:
 - [ ] Phase 0: Read project context (specs/product_manager_overview.md)
 - [ ] Phase 0.5: Initialize questions document
-- [ ] Phase 1: Requirements elicitation (ask ALL questions first)
-- [ ] Phase 2: Write specification
+- [ ] Phase 1a: Document ALL questions up front (using topics.md)
+- [ ] Phase 1b: Guide user through questions one at a time
+- [ ] Phase 1c: Update spec between topics (incremental drafting)
+- [ ] Phase 2: Finalize specification
 - [ ] Phase 3: Validate with user
 ```
 
@@ -81,34 +83,64 @@ Create `/specs/{feature}/questions.md` as the SINGLE SOURCE OF TRUTH for all que
 
 ### Phase 1: Requirements Elicitation (MANDATORY)
 
-**BEFORE writing ANY part of the spec**, ask these questions and record ALL in `/specs/{feature}/questions.md`:
+**Step 1: Document ALL Questions Up Front**
 
-**Understand User Needs (WHY)**:
-- WHY do users need this? What problem does it solve?
-- WHAT happens if users don't have this?
-- WHAT business value does this provide?
+Come up with important clarifying questions which help understand all necessary functionality in depth, use cases and acceptance criteria. 
+Take help from [topics.md](topics.md) as a guide to generate comprehensive questions covering all areas (scope, context, user needs, 
+functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements).
 
-**Define Scope (WHAT)**:
-- WHAT specific functionality is needed?
-- WHAT are the most important scenarios?
-- WHAT is out of scope?
+Record ALL questions in `/specs/{feature}/questions.md` under "## Questions for the User" section BEFORE asking any questions.
 
-**Understand Existing System**:
-- WHAT existing features will this interact with?
-- WHAT gaps exist in current capabilities?
+**Step 2: Guide User Through Questions One at a Time**
 
-**Explore Details**:
-- WHAT edge cases or error conditions should be handled?
-- WHAT validation rules should apply?
+After documenting all questions:
+1. Present ONE question at a time to the user
+2. Provide contextual suggestions or examples to help them answer
+3. Wait for their answer before moving to the next question
+4. **Immediately update `/specs/{feature}/questions.md`** - Add the answer as a sub-item under the question
+5. **As you receive answers, think of new questions** - Their response may reveal edge cases, constraints, or requirements you didn't anticipate
+6. **Update questions.md with new questions** immediately when they arise
+7. Continue through all questions, including newly discovered ones
+
+**CRITICAL**: Update the questions document after EVERY answer to maintain it as the single source of truth.
+
+**Step 3: Update Specification Between Topics**
+
+As you complete a topic area (scope, validation rules, user needs, etc.), **update the specification document** before moving to the next topic:
+
+1. **Recognize topic boundaries** - When finishing questions about scope, validation, edge cases, etc.
+2. **Pause and draft relevant spec sections** - Based on answers gathered for that topic:
+   - After scope questions → Draft entity definitions, use cases
+   - After validation questions → Draft validation rules, business rules
+   - After edge case questions → Draft acceptance criteria scenarios
+   - After integration questions → Draft business process documentation
+3. **Update `/specs/{feature}/{feature}_business_spec.md`** with the drafted sections
+4. **Continue to next topic** and repeat the pattern
+
+This incremental approach ensures the specification evolves alongside requirements discovery, rather than waiting until Phase 2.
+
+**Contextual Suggestions Examples**:
+- For validation rules: "For example, should email addresses follow RFC 5322 format? Any length limits?"
+- For edge cases: "For instance, what should happen if a user uploads a 0-byte file?"
+- For scope: "To clarify, would this include X or is that out of scope for this release?"
+
+**Discovery Pattern**: User answers → Update questions.md → Complete topic → Update spec → Move to next topic
 
 **Answer Architect Questions**:
 - Check `/specs/{feature}/questions.md` regularly for architect questions
 - Answer questions about business requirements, validation rules, acceptance criteria
 - Record your answers as sub-items in questions.md for decision history
 
-### Phase 2: Write Specification
+### Phase 2: Finalize Specification
 
-Create `/specs/{feature}/{feature}_business_spec.md` using the template in [spec.template.md](spec.template.md).
+By this phase, you've been incrementally drafting `/specs/{feature}/{feature}_business_spec.md` during Phase 1 as you completed each topic area.
+
+Now:
+1. Review the specification for completeness against [spec.template.md](spec.template.md)
+2. Fill in any remaining sections not covered during Phase 1
+3. Ensure all sections are complete and coherent
+4. Verify all answers from questions.md are reflected in the spec
+5. Add any missing cross-references between sections
 
 ### Phase 3: Validate with User
 
@@ -121,15 +153,17 @@ Before finalizing, verify:
 
 ## Common Mistakes
 
-| Mistake                        | Example                                         | Fix                                          |
-|--------------------------------|-------------------------------------------------|----------------------------------------------|
-| System actor in use case       | "Notification Service triggers alert"           | Move to Business Process Documentation       |
-| Specifying HOW instead of WHAT | "Use exponential backoff with 2^n delay"        | Focus on WHAT the retry behavior should be   |
-| No needs tracing               | Feature list without WHY                        | Ask: "Why does user need this?"              |
-| Assuming instead of asking     | "Users need quiet hours" (user never said this) | Ask user about notification preferences      |
-| Technical architecture in spec | "Event bus will use Kafka with 3 partitions"    | Define business events, not infrastructure   |
-| Vague acceptance criteria      | "System handles errors gracefully"              | Specify exact error conditions and responses |
-| Skipping requirements phase    | Jump straight to writing spec                   | Always complete Phase 1 elicitation first    |
+| Mistake                           | Example                                         | Fix                                             |
+|-----------------------------------|-------------------------------------------------|-------------------------------------------------|
+| System actor in use case          | "Notification Service triggers alert"           | Move to Business Process Documentation          |
+| Specifying HOW instead of WHAT    | "Use exponential backoff with 2^n delay"        | Focus on WHAT the retry behavior should be      |
+| No needs tracing                  | Feature list without WHY                        | Ask: "Why does user need this?"                 |
+| Assuming instead of asking        | "Users need quiet hours" (user never said this) | Ask user about notification preferences         |
+| Technical architecture in spec    | "Event bus will use Kafka with 3 partitions"    | Define business events, not infrastructure      |
+| Vague acceptance criteria         | "System handles errors gracefully"              | Specify exact error conditions and responses    |
+| Skipping requirements phase       | Jump straight to writing spec                   | Always complete Phase 1 elicitation first       |
+| Asking questions one by one first | Start Q&A without documenting all questions     | Document ALL questions first, then ask          |
+| Waiting to write spec until Phase 2 | Collect all answers then write entire spec    | Update spec incrementally between topics        |
 
 ## Pre-Finalization Checklist
 
