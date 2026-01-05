@@ -2,54 +2,14 @@
 
 ## Specification
 
-### Entity Definition
+### Scope
 
-#### Document Entity
+[Clear succinct overview of what use cases are in scope vs out of scope for this specification.]
 
-**Entity Structure:**
+### Context
 
-```mermaid
-classDiagram
-    class Document {
-        +String file_path
-        +String file_type
-        +Integer file_size
-        +JSON metadata
-        +String cached_markdown_path
-        +String processing_status
-        +DateTime created_at
-        +DateTime updated_at
-    }
-```
+[Provide context of what the scope is about, why it is needed by the end user, the value drivers. Make the reader understand why, where, when, who]
 
-**State Diagram:**
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending: Document uploaded
-    pending: pending
-    pending: Document uploaded, awaiting processing
-    processing: processing
-    processing: Currently being processed
-    completed: completed
-    completed: Successfully processed with cached markdown
-    failed: failed
-    failed: Processing failed with error
-    pending --> processing: Processing initiated
-    processing --> completed: Processing successful
-    processing --> failed: Processing error
-    failed --> processing: Retry processing
-    completed --> [*]
-    failed --> [*]
-```
-
-**Validation Rules**:
-
-- File type must be supported (PDF, DOCX, TXT)
-- File size must be within limits (max 50MB)
-- File must not be corrupted or empty
-- Markdown files (.md) are rejected as input
-- File path must be valid and accessible
 
 ### Use Cases
 
@@ -68,19 +28,19 @@ stateDiagram-v2
 
 - **Description**: An end user who needs to process documents for analysis or content extraction. Users interact with the system through the API to upload documents and retrieve processed results.
 - **Objectives**:
-    - Upload documents in supported formats (PDF, DOCX, TXT)
-    - Receive processed document content in markdown format
-    - Understand validation errors when documents are rejected
-    - Access cached results for previously processed documents
+  - Upload documents in supported formats (PDF, DOCX, TXT)
+  - Receive processed document content in markdown format
+  - Understand validation errors when documents are rejected
+  - Access cached results for previously processed documents
 
 **System Administrator**
 
 - **Description**: A technical administrator responsible for system maintenance, monitoring processing workflows, and managing system configuration.
 - **Objectives**:
-    - Monitor document processing status and system health
-    - Manage cache and storage resources
-    - Review processing errors and system logs
-    - Configure system limits and validation rules
+  - Monitor document processing status and system health
+  - Manage cache and storage resources
+  - Review processing errors and system logs
+  - Configure system limits and validation rules
 
 #### Use Case Diagram
 
@@ -112,12 +72,12 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: User has a valid document file and API access credentials
 - **Postconditions**: Document entity is created in "pending" state, or validation error is returned to user
 - **Main Flow**:
-    1. User uploads document file
-    2. System detects file type
-    3. System validates file (type, size, integrity)
-    4. If valid, document entity created in "pending" state
-    5. DocumentUploaded event is raised
-    6. User receives confirmation with document ID
+  1. User uploads document file
+  2. System detects file type
+  3. System validates file (type, size, integrity)
+  4. If valid, document entity created in "pending" state
+  5. DocumentUploaded event is raised
+  6. User receives confirmation with document ID
 
 **UC2: Retrieve Processed Document**
 
@@ -128,11 +88,11 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: Document has been uploaded and processing has been initiated
 - **Postconditions**: User receives processed content or current status
 - **Main Flow**:
-    1. User requests processed document by document ID
-    2. System checks document status
-    3. If completed, system returns cached markdown and metadata
-    4. If processing, system returns current status
-    5. If failed, system returns error information
+  1. User requests processed document by document ID
+  2. System checks document status
+  3. If completed, system returns cached markdown and metadata
+  4. If processing, system returns current status
+  5. If failed, system returns error information
 
 **UC3: Check Processing Status**
 
@@ -142,11 +102,11 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: Document has been uploaded
 - **Postconditions**: User receives current document status
 - **Main Flow**:
-    1. User requests status for document ID
-    2. System retrieves document entity
-    3. System returns current processing status
-    4. If completed, system includes completion timestamp
-    5. If failed, system includes error details
+  1. User requests status for document ID
+  2. System retrieves document entity
+  3. System returns current processing status
+  4. If completed, system includes completion timestamp
+  5. If failed, system includes error details
 
 **UC4: Monitor System Health**
 
@@ -156,10 +116,10 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: Administrator has monitoring access
 - **Postconditions**: Administrator has visibility into system health metrics
 - **Main Flow**:
-    1. Administrator accesses monitoring dashboard
-    2. System aggregates processing metrics
-    3. System displays queue status, throughput, error rates
-    4. Administrator reviews metrics and identifies issues
+  1. Administrator accesses monitoring dashboard
+  2. System aggregates processing metrics
+  3. System displays queue status, throughput, error rates
+  4. Administrator reviews metrics and identifies issues
 
 **UC5: Manage Cache**
 
@@ -170,11 +130,11 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: Administrator has cache management access
 - **Postconditions**: Cache is updated according to administrator actions
 - **Main Flow**:
-    1. Administrator accesses cache management interface
-    2. System displays cache statistics (size, hit rate, oldest entries)
-    3. Administrator selects cache management action (view, clear specific, purge by criteria)
-    4. System executes action and updates cache
-    5. System confirms action completion
+  1. Administrator accesses cache management interface
+  2. System displays cache statistics (size, hit rate, oldest entries)
+  3. Administrator selects cache management action (view, clear specific, purge by criteria)
+  4. System executes action and updates cache
+  5. System confirms action completion
 
 **UC6: Review Processing Errors**
 
@@ -185,11 +145,11 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
 - **Preconditions**: Document processing failures have occurred
 - **Postconditions**: Administrator has insight into processing errors
 - **Main Flow**:
-    1. Administrator accesses error log interface
-    2. System retrieves failed document records
-    3. System displays error details (error type, message, timestamp, document metadata)
-    4. Administrator analyzes error patterns
-    5. Administrator takes corrective action if needed
+  1. Administrator accesses error log interface
+  2. System retrieves failed document records
+  3. System displays error details (error type, message, timestamp, document metadata)
+  4. Administrator analyzes error patterns
+  5. Administrator takes corrective action if needed
 
 ### Acceptance Criteria
 
@@ -199,8 +159,8 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
   criteria even if others are added, removed, or reordered.
 
 - **Never delete acceptance criteria once created**: If an acceptance criteria is no longer needed or becomes obsolete, mark it as deprecated rather than deleting it. Use the following format:
-    - `- [ ] ~~AC X - Scenario: [description]~~ (DEPRECATED)`
-    - Or add a deprecation note explaining why it's deprecated and when it was deprecated
+  - `- [ ] ~~AC X - Scenario: [description]~~ (DEPRECATED)`
+  - Or add a deprecation note explaining why it's deprecated and when it was deprecated
 
 #### Examples
 
@@ -272,53 +232,54 @@ section (Activity Flow Diagrams, Event Sequence Diagrams) as internal system wor
       | .zip           | 8         | reject the file through domain validation logic      | DocumentRejected    |
 ```
 
+
 ### Business Process Documentation
 
 #### Business Events
 
 - **Event: DocumentUploaded**
-    - **Event Type**: Start Event
-    - **Trigger**: User uploads a document file to the system
-    - **Payload**:
-        - `file_path`: String - Path to uploaded document
-        - `file_type`: String - Detected file type (PDF, DOCX, TXT)
-        - `file_size`: Integer - File size in bytes
-        - `upload_timestamp`: DateTime - When upload occurred
-    - **Consumers**: Document validation process, file type detection handler
-    - **Business Context**: Represents the initiation of document processing workflow
+  - **Event Type**: Start Event
+  - **Trigger**: User uploads a document file to the system
+  - **Payload**:
+    - `file_path`: String - Path to uploaded document
+    - `file_type`: String - Detected file type (PDF, DOCX, TXT)
+    - `file_size`: Integer - File size in bytes
+    - `upload_timestamp`: DateTime - When upload occurred
+  - **Consumers**: Document validation process, file type detection handler
+  - **Business Context**: Represents the initiation of document processing workflow
 
 - **Event: DocumentValidationCompleted**
-    - **Event Type**: Intermediate Event
-    - **Trigger**: Document validation checks (file type, size, corruption) are completed
-    - **Payload**:
-        - `document_id`: String - Unique document identifier
-        - `validation_result`: Enum - Valid, Invalid, Rejected
-        - `validation_errors`: Array[String] - List of validation errors if invalid
-        - `validated_at`: DateTime - When validation completed
-    - **Consumers**: Document processing orchestrator, error handling service
-    - **Business Context**: Determines whether document can proceed to processing stage
+  - **Event Type**: Intermediate Event
+  - **Trigger**: Document validation checks (file type, size, corruption) are completed
+  - **Payload**:
+    - `document_id`: String - Unique document identifier
+    - `validation_result`: Enum - Valid, Invalid, Rejected
+    - `validation_errors`: Array[String] - List of validation errors if invalid
+    - `validated_at`: DateTime - When validation completed
+  - **Consumers**: Document processing orchestrator, error handling service
+  - **Business Context**: Determines whether document can proceed to processing stage
 
 - **Event: DocumentProcessingCompleted**
-    - **Event Type**: End Event
-    - **Trigger**: Document has been successfully processed and cached markdown created
-    - **Payload**:
-        - `document_id`: String - Unique document identifier
-        - `cached_markdown_path`: String - Path to cached markdown file
-        - `metadata`: JSON - Extracted document metadata
-        - `processed_at`: DateTime - When processing completed
-    - **Consumers**: Notification service, cache management service
-    - **Business Context**: Indicates successful completion of document processing workflow
+  - **Event Type**: End Event
+  - **Trigger**: Document has been successfully processed and cached markdown created
+  - **Payload**:
+    - `document_id`: String - Unique document identifier
+    - `cached_markdown_path`: String - Path to cached markdown file
+    - `metadata`: JSON - Extracted document metadata
+    - `processed_at`: DateTime - When processing completed
+  - **Consumers**: Notification service, cache management service
+  - **Business Context**: Indicates successful completion of document processing workflow
 
 - **Event: DocumentProcessingFailed**
-    - **Event Type**: End Event
-    - **Trigger**: Document processing encountered an error and failed
-    - **Payload**:
-        - `document_id`: String - Unique document identifier
-        - `error_message`: String - Description of the error
-        - `error_type`: String - Type of error (corruption, timeout, parsing error)
-        - `failed_at`: DateTime - When processing failed
-    - **Consumers**: Error handling service, retry mechanism
-    - **Business Context**: Indicates failure in document processing workflow, may trigger retry logic
+  - **Event Type**: End Event
+  - **Trigger**: Document processing encountered an error and failed
+  - **Payload**:
+    - `document_id`: String - Unique document identifier
+    - `error_message`: String - Description of the error
+    - `error_type`: String - Type of error (corruption, timeout, parsing error)
+    - `failed_at`: DateTime - When processing failed
+  - **Consumers**: Error handling service, retry mechanism
+  - **Business Context**: Indicates failure in document processing workflow, may trigger retry logic
 
 #### Activity Flow Diagram
 
@@ -391,6 +352,57 @@ sequenceDiagram
         deactivate Processing
     end
 ```
+
+### Entity Definition
+
+#### Document Entity
+
+**Entity Structure:**
+
+```mermaid
+classDiagram
+    class Document {
+        +String file_path
+        +String file_type
+        +Integer file_size
+        +JSON metadata
+        +String cached_markdown_path
+        +String processing_status
+        +DateTime created_at
+        +DateTime updated_at
+    }
+```
+
+**State Diagram:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: Document uploaded
+    pending: pending
+    pending: Document uploaded, awaiting processing
+    processing: processing
+    processing: Currently being processed
+    completed: completed
+    completed: Successfully processed with cached markdown
+    failed: failed
+    failed: Processing failed with error
+    pending --> processing: Processing initiated
+    processing --> completed: Processing successful
+    processing --> failed: Processing error
+    failed --> processing: Retry processing
+    completed --> [*]
+    failed --> [*]
+```
+
+**Validation Rules**:
+
+- File type must be supported (PDF, DOCX, TXT)
+- File size must be within limits (max 50MB)
+- File must not be corrupted or empty
+- Markdown files (.md) are rejected as input
+- File path must be valid and accessible
+
+
 
 ### Contracts and APIs
 
