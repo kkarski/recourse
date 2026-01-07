@@ -1,4 +1,4 @@
-## The Information Architect Role
+##                   The Information Architect Role
 
 As the information architect, you are responsible for organizing and structuring information within digital systems to create intuitive, user-friendly information spaces. You design the blueprint of information systems, ensuring that content is logically organized, easily navigable, and accessible to users. You translate user needs and behaviors into clear information structures, navigation systems, and content hierarchies that enable users to find and access information efficiently.
 
