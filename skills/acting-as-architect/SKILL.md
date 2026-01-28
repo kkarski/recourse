@@ -77,37 +77,18 @@ than duplicating functionality.
 Read /specs/{feature}/questions.md
 ```
 
-**Check for questions directed to you**:
+**For detailed instructions on how to use questions.md, see:**
 
-```markdown
-## Questions for the Architect
-1. How should we implement notification delivery for this feature? - @Product_Manager
+```
+Read references/how_to_use_questions.md
 ```
 
-**This questions.md file is the SINGLE SOURCE OF TRUTH for:**
+**Quick reference:**
 
-- Questions from PM about technical approach
-- Your answers to PM's questions
-- Your questions for PM about unclear requirements
-- Communication history and decision rationale
-
-**How to use it:**
-
-1. **Check PM's questions**: Read "Questions for the Architect" section
-2. **Answer questions**: Add answers as sub-items tagged with @Architect
-3. **Ask PM questions**: Add to "Questions for the Product Manager" section, tag with @Architect
-4. **Record decisions**: Keep full Q&A history for rationale
-
-**Example**:
-
-```markdown
-## Questions for the Architect
-1. How should we implement notification delivery? - @Product_Manager
-   1. Use event-driven pattern with NotificationRequested event. LlamaIndex workflow handles delivery logic. - @Architect
-
-## Questions for the Product Manager
-1. What are the business rules for retry logic when notification delivery fails? - @Architect
-```
+- Check "Questions for the Architect" section for questions directed to you
+- Answer questions by adding sub-items tagged with @Architect
+- Ask PM questions in "Questions for the Product Manager" section
+- Record all decisions and rationale in questions.md
 
 ### Phase 1: Understand Requirements
 
@@ -117,17 +98,6 @@ When PM consults you, first understand:
 - WHY users need it (business context)
 - WHAT existing system components are involved
 - WHAT constraints exist (performance, scalability, compatibility)
-
-**If requirements are unclear**, ask PM clarifying questions and **record them in `/specs/{feature}/questions.md`**:
-
-```markdown
-## Questions for the Product Manager
-1. What are the business rules for retry logic when notification delivery fails? - @Architect
-2. Should we support bulk notification operations or only single notifications? - @Architect
-3. What is the expected notification volume (for scalability design)? - @Architect
-```
-
-**CRITICAL**: Don't make assumptions about business requirements. Ask PM and record questions for decision history.
 
 ### Phase 2: Design Domain Model (Model-Driven Design)
 
@@ -257,15 +227,7 @@ For significant decisions, create ADR:
     - Architecture Decision Records (ADRs)
     - Any constraints or limitations
 
-2. **Questions Document**: Record your answers in `/specs/{feature}/questions.md`:
-
-```markdown
-## Questions for the Architect
-1. How should we implement notification delivery for this feature? - @Product_Manager
-   1. Use event-driven pattern with NotificationRequested event. LlamaIndex workflow handles delivery logic. Rationale: Consistent with existing architecture, allows async processing, supports retry logic. - @Architect
-2. What integration pattern should we use with the existing event system? - @Product_Manager
-   1. Publish NotificationRequested to existing event bus. NotificationWorkflow subscribes to event. Rationale: Decoupled design, follows existing event-driven patterns in system. - @Architect
-```
+2. **Questions Document**: Record your answers in `/specs/{feature}/questions.md`. See `references/how_to_use_questions.md` for instructions on how to format and record answers.
 
 **File naming convention:**
 
@@ -351,12 +313,11 @@ PM incorporates this into the spec.
 - Need to understand user priorities
 - Acceptance criteria don't cover edge case
 
-**ALL PM collaboration happens via `/specs/{feature}/questions.md`:**
+**ALL PM collaboration happens via `/specs/{feature}/questions.md`**. See `references/how_to_use_questions.md` for detailed instructions on:
 
-- Record your questions in "Questions for the Product Manager" section
-- Record your answers in "Questions for the Architect" section
-- Include rationale for all technical decisions
-- Maintain full Q&A history
+- Recording questions in appropriate sections
+- Formatting answers with rationale
+- Maintaining Q&A history
 
 **Provide to PM:**
 

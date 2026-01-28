@@ -53,7 +53,7 @@ Use when:
 
 **NO CODE WITHOUT TESTS FIRST. No exceptions.**
 
-Follow TDD from `process/guides/tdd.md`:
+Follow TDD from `references/tdd.md`:
 
 ### RED-GREEN-REFACTOR Cycle
 
@@ -165,7 +165,7 @@ Next acceptance criterion → Write failing test → Implement → Refactor → 
 
 ## Test Categories (What to Write)
 
-**From `process/guides/tdd.md`:**
+**From `references/tdd.md`:**
 
 ### DO Write:
 
@@ -276,6 +276,14 @@ Follow architect's technical decisions:
 - Alternative pattern would be better
 
 ## Consulting PM and Architect
+
+**MANDATORY: Before consulting PM or Architect**, you MUST read the questions.md usage guide:
+
+```
+Read references/how_to_use_questions.md
+```
+
+All cross-role communication happens via `/specs/{feature}/questions.md`. See the guide for instructions on how to format and record questions and answers.
 
 ### Ask PM when:
 

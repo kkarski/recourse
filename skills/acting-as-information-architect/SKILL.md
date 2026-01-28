@@ -58,43 +58,24 @@ The business spec provides critical context:
 
 ### Phase 0.5: Check and Use Questions Document
 
-The `questions.md` file is the **SINGLE SOURCE OF TRUTH** for cross-role communication:
+**MANDATORY: Before starting work**, you MUST read the questions.md usage guide:
+
+```
+Read references/how_to_use_questions.md
+```
+
+**Then check the central communication log:**
 
 ```
 Read specs/{feature}/questions.md
 ```
 
-**This file contains:**
-- Questions FROM other roles directed TO you
-- Your answers TO those questions
-- Your questions FOR other roles
-- Communication history and decision rationale
+**Quick reference:**
 
-**How to check for questions directed to you:**
-
-```markdown
-## Questions for the Information Architect
-1. How should we organize the settings hierarchy? - @Product_Manager
-2. What navigation pattern works for cross-category content? - @Architect
-```
-
-**How to answer questions (add as sub-item with your tag):**
-
-```markdown
-## Questions for the Information Architect
-1. How should we organize the settings hierarchy? - @Product_Manager
-   1. Use 2-level hierarchy: Settings > Category. Max 6 top-level categories. Rationale: Reduces cognitive load, follows existing IA conventions. - @Information_Architect
-```
-
-**How to ask questions (add to appropriate section with your tag):**
-
-```markdown
-## Questions for the Product Manager
-1. What terminology do users use for "workspace" vs "project"? - @Information_Architect
-2. Are there user research findings on navigation preferences? - @Information_Architect
-```
-
-**CRITICAL**: Record ALL answers in `questions.md` for decision history and traceability.
+- Check "Questions for the Information Architect" section for questions directed to you
+- Answer questions by adding sub-items tagged with @Information_Architect
+- Ask questions in appropriate sections (Questions for the Product Manager, Questions for the Architect, etc.)
+- Record all answers and decisions in questions.md for traceability
 
 ### Phase 1: Content Inventory
 
@@ -256,16 +237,16 @@ Best balance of user mental model (categories) with discoverability (brand filte
 
 - [ ] Read `ia_overview.md` for existing patterns
 - [ ] **Read `{feature}_business_spec.md`** for user goals and personas
-- [ ] **Checked `questions.md` for questions directed to you**
-- [ ] **Answered all questions in `questions.md`** (with rationale)
+- [ ] **Checked `questions.md` for questions directed to you** (see `references/how_to_use_questions.md`)
+- [ ] **Answered all questions in `questions.md`** (with rationale - see `references/how_to_use_questions.md`)
 - [ ] Navigation max 3 levels deep
 - [ ] Labels are user-centered, max 2 words
 - [ ] Action labels are verb-first
 - [ ] Site map created
 - [ ] **Assumptions section completed** (even if proceeding)
-- [ ] **Questions for PM documented in `questions.md`** (even if unavailable)
+- [ ] **Questions for PM documented in `questions.md`** (even if unavailable - see `references/how_to_use_questions.md`)
 - [ ] Created `{feature}_ia.md`
-- [ ] **Recorded all IA decisions in `questions.md`** for traceability
+- [ ] **Recorded all IA decisions in `questions.md`** for traceability (see `references/how_to_use_questions.md`)
 
 ---
 
@@ -285,51 +266,20 @@ Best balance of user mental model (categories) with discoverability (brand filte
 
 ## Collaboration Protocol
 
-**ALL cross-role communication happens via `/specs/{feature}/questions.md`**
+**ALL cross-role communication happens via `/specs/{feature}/questions.md`**. See `references/how_to_use_questions.md` for detailed instructions.
 
 ### With PM
 
 **Input from PM** (read before designing):
 - `{feature}_business_spec.md` - User personas, goals, success criteria
 
-**Answering PM's questions:**
-```markdown
-## Questions for the Information Architect
-1. How should navigation be structured for this feature? - @Product_Manager
-   1. Three-section nav: Browse, Manage, Settings. Faceted filtering for discovery. Rationale: Matches user mental model from business spec personas. - @Information_Architect
-```
+**Answering PM's questions and asking PM questions**: See `references/how_to_use_questions.md` for detailed instructions on formatting and recording Q&A in questions.md.
 
-**Asking PM questions:**
-```markdown
-## Questions for the Product Manager
-1. What terminology do users use for {concept}? - @Information_Architect
-2. Are there user research findings on navigation preferences? - @Information_Architect
-```
-
-**When PM is unavailable** (proceed with assumptions, record in questions.md):
-```markdown
-## Questions for the Product Manager
-1. What terminology do users use for "workspace"? - @Information_Architect
-   - **Proceeding with assumption**: Using "Workspace" based on business spec language
-   - **If wrong**: Will need to update all nav labels
-   - **Validation needed**: User terminology research
-```
+**When PM is unavailable**: Proceed with documented assumptions. See `references/how_to_use_questions.md` for instructions on recording assumptions.
 
 ### With Architect
 
-**Answering Architect's questions:**
-```markdown
-## Questions for the Information Architect
-1. What URL structure does the navigation require? - @Architect
-   1. /feature/section/subsection pattern. Max 3 levels. See site map in {feature}_ia.md. - @Information_Architect
-```
-
-**Asking Architect questions:**
-```markdown
-## Questions for the Architect
-1. Are there technical constraints on search/filtering capabilities? - @Information_Architect
-2. Can navigation support dynamic faceted filters? - @Information_Architect
-```
+**Answering Architect's questions and asking Architect questions**: See `references/how_to_use_questions.md` for detailed instructions on formatting and recording Q&A in questions.md.
 
 ### With UX Designer
 

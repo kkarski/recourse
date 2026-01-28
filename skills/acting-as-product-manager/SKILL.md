@@ -58,35 +58,25 @@ Read `specs/product_manager_overview.md` to understand existing features, gaps, 
 
 ### Phase 0.5: Initialize Questions Document
 
+**MANDATORY: Before initializing the questions document**, you MUST read the questions.md usage guide:
+
+```
+Read references/how_to_use_questions.md
+```
+
 ```bash
 mkdir -p /specs/{feature}
 # Copy structure from ../templates/questions.template.md
 ```
 
-Create `/specs/{feature}/questions.md` as the SINGLE SOURCE OF TRUTH for all questions/answers from all roles (PM, Architect, Engineer, QA).
-
-**Usage**:
-- Add questions to appropriate section, tag with @Product_Manager
-- Check file regularly for answers from User or other roles
-- Record answers as sub-items for decision history
-
-**Example**:
-```markdown
-## Questions for the User
-1. Why do users need this feature? What problem does it solve? - @Product_Manager
-   1. Users complained about too many notifications - @User
-
-## Questions for the Product Manager
-1. What validation rules should apply to notification preferences? - @Architect
-   1. User can set quiet hours between 00:00-23:59, duration must be at least 1 hour - @Product_Manager
-```
+Create `/specs/{feature}/questions.md`. See `references/how_to_use_questions.md` for detailed formatting instructions and structure.
 
 ### Phase 1: Requirements Elicitation (MANDATORY)
 
 **Step 1: Document ALL Questions Up Front**
 
-Come up with important clarifying questions which help understand all necessary functionality in depth, use cases and acceptance criteria. 
-Take help from [topics.md](topics.md) as a guide to generate comprehensive questions covering all areas (scope, context, user needs, 
+Come up with important clarifying questions which help understand all necessary functionality in depth, use cases and acceptance criteria.
+Take help from [topics.md](references/topics.md) as a guide to generate comprehensive questions covering all areas (scope, context, user needs,
 functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements).
 
 Record ALL questions in `/specs/{feature}/questions.md` under "## Questions for the User" section BEFORE asking any questions.
@@ -97,12 +87,12 @@ After documenting all questions:
 1. Present ONE question at a time to the user
 2. Provide contextual suggestions or examples to help them answer
 3. Wait for their answer before moving to the next question
-4. **Immediately update `/specs/{feature}/questions.md`** - Add the answer as a sub-item under the question
+4. **Immediately update `/specs/{feature}/questions.md`** - Add the answer following the format in `references/how_to_use_questions.md`
 5. **As you receive answers, think of new questions** - Their response may reveal edge cases, constraints, or requirements you didn't anticipate
 6. **Update questions.md with new questions** immediately when they arise
 7. Continue through all questions, including newly discovered ones
 
-**CRITICAL**: Update the questions document after EVERY answer to maintain it as the single source of truth.
+**CRITICAL**: Update the questions document after EVERY answer. See `references/how_to_use_questions.md` for best practices.
 
 **Step 3: Update Specification Between Topics**
 
@@ -127,16 +117,18 @@ This incremental approach ensures the specification evolves alongside requiremen
 **Discovery Pattern**: User answers → Update questions.md → Complete topic → Update spec → Move to next topic
 
 **Answer Architect Questions**:
-- Check `/specs/{feature}/questions.md` regularly for architect questions
+
+- Check `/specs/{feature}/questions.md` regularly for architect questions (see `references/how_to_use_questions.md` for how to check)
 - Answer questions about business requirements, validation rules, acceptance criteria
-- Record your answers as sub-items in questions.md for decision history
+- Record your answers following the format in `references/how_to_use_questions.md`
 
 ### Phase 2: Finalize Specification
 
 By this phase, you've been incrementally drafting `/specs/{feature}/{feature}_business_spec.md` during Phase 1 as you completed each topic area.
 
 Now:
-1. Review the specification for completeness against [spec.template.md](spec.template.md)
+
+1. Review the specification for completeness against [spec.template.md](assets/spec.template.md)
 2. Fill in any remaining sections not covered during Phase 1
 3. Ensure all sections are complete and coherent
 4. Verify all answers from questions.md are reflected in the spec
