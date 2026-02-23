@@ -7,6 +7,8 @@ description: Elicit requirements and write product specifications through struct
 
 **Core principle**: Elicit requirements through questions. Every requirement must trace to a user need. Define WHAT/WHY/WHO/WHEN (business logic), not HOW (technical implementation).
 
+**Discovery principle**: **Breadth before depth.** Discover the full breadth of requirements (every metric, chart, outcome, and named concept) and ask at least one discovery question per item before going deep on any single topic. Avoid drilling into one area (e.g. access control or empty states) until you have surfaced and questioned every user-facing element.
+
 ## When to Use This Skill
 
 Use when:
@@ -26,6 +28,7 @@ Use when:
 - WHEN success occurs (acceptance criteria)
 - WHICH scenarios matter (use cases, edge cases)
 - Business rules, validation rules, state transitions
+- UNCOVER hidden, implied, vague requirements
 
 **YOU DO NOT define (Technical implementation):**
 
@@ -73,24 +76,36 @@ Create `/specs/{feature}/questions.md`. See `references/how_to_use_questions.md`
 
 ### Phase 1: Requirements Elicitation (MANDATORY)
 
-**Step 1: Document ALL Questions Up Front**
+**Step 0: Inventory and Mine Existing Artifacts (when plans or prior specs exist)**
 
-Come up with important clarifying questions which help understand all necessary functionality in depth, use cases and acceptance criteria.
-Take help from [topics.md](references/topics.md) as a guide to generate comprehensive questions covering all areas (scope, context, user needs,
-functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements).
+If the user has attached or the project contains a plan, prior spec, or design doc (e.g. `.cursor/plans/*.plan.md`, existing spec files):
+
+1. **Inventory**: Extract and list every **metric**, **chart/visualization**, **acceptance criterion** (or scenario), **feature name**, and **qualified term** (e.g. "significant ads", "viewer segment") that appears in those artifacts.
+2. **Mine for questions**: For each item in the inventory, generate at least one discovery question—e.g. definition ("How is 'significant' defined?"), display ("How should this metric be shown?"), priority ("Is this in scope for first release?"), or confirmation ("Is 90th percentile the right threshold?"). Do not assume the plan is the product requirement; treat it as a source of implicit and embedded requirements to unpack.
+3. **Breadth pass first**: Ensure your question set includes this breadth pass (at least one question per metric, chart, and named concept) before you add depth questions on any single topic.
+
+**Step 1: Document ALL Questions Up Front (breadth-first)**
+
+Come up with important clarifying questions that cover the **full breadth** of the feature, then depth. Use [topics.md](references/topics.md) as a guide.
+
+- **Breadth**: For every metric, chart, section, and user-visible outcome (from the user’s description or from existing plans/specs), include at least one question (scope, definition, display, or confirmation).
+- **Areas**: Scope, context, user needs, functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements—with breadth within each area before going deep in one.
 
 Record ALL questions in `/specs/{feature}/questions.md` under "## Questions for the User" section BEFORE asking any questions.
 
 **Step 2: Guide User Through Questions One at a Time**
 
 After documenting all questions:
-1. Present ONE question at a time to the user
-2. Provide contextual suggestions or examples to help them answer
-3. Wait for their answer before moving to the next question
-4. **Immediately update `/specs/{feature}/questions.md`** - Add the answer following the format in `references/how_to_use_questions.md`
-5. **As you receive answers, think of new questions** - Their response may reveal edge cases, constraints, or requirements you didn't anticipate
-6. **Update questions.md with new questions** immediately when they arise
-7. Continue through all questions, including newly discovered ones
+0. Answer all questions you already know the answers to. Direct all other questions to the user.
+1. When you need to clarify requirements with the user, use the ask questions tool
+2. Do not ask questions as plain text - always use the ask questions tool
+3. Present ONE question at a time to the user
+4. Provide contextual suggestions or examples to help them answer
+5. Wait for their answer before moving to the next question
+6. **Immediately update `/specs/{feature}/questions.md`** - Add the answer following the format in `references/how_to_use_questions.md`
+7. **As you receive answers, think of new questions** - Their response may reveal edge cases, constraints, or requirements you didn't anticipate
+8. **Update questions.md with new questions** immediately when they arise
+9. Continue through all questions, including newly discovered ones
 
 **CRITICAL**: Update the questions document after EVERY answer. See `references/how_to_use_questions.md` for best practices.
 
@@ -133,6 +148,7 @@ Now:
 3. Ensure all sections are complete and coherent
 4. Verify all answers from questions.md are reflected in the spec
 5. Add any missing cross-references between sections
+6. **If a plan or prior spec existed**: Reconcile—every user-facing metric, chart, and acceptance criterion from that artifact should either appear in the business spec (with business-level definition and AC) or be explicitly marked out of scope / deferred. No silent omission of plan content that affects what the user sees or what success means.
 
 ### Phase 3: Validate with User
 
@@ -156,6 +172,9 @@ Before finalizing, verify:
 | Skipping requirements phase       | Jump straight to writing spec                   | Always complete Phase 1 elicitation first       |
 | Asking questions one by one first | Start Q&A without documenting all questions     | Document ALL questions first, then ask          |
 | Waiting to write spec until Phase 2 | Collect all answers then write entire spec    | Update spec incrementally between topics        |
+| **Going deep before breadth**     | Drill into 404/access before asking about any metric or chart | Inventory all metrics, charts, outcomes; ask ≥1 question per item before depth |
+| **Ignoring plan/spec content**    | Plan lists 15 metrics and 8 charts; only one "all in scope?" question asked | Mine plan/spec: list every metric, chart, AC; ask definition/display/priority per item |
+| **Missing embedded requirements** | "Significant ads" in plan never defined (e.g. 90th percentile) | Unpack every adjective and qualified term (significant, top, repeat); ask how defined |
 
 ## Pre-Finalization Checklist
 
@@ -166,3 +185,5 @@ Before finalizing, verify:
 - [ ] Coverage includes positive, negative, and edge cases
 - [ ] Questions document is complete and up-to-date
 - [ ] User validates spec meets their actual needs
+- [ ] **Breadth covered**: Every metric, chart, and named outcome from the problem or from any plan/spec had at least one discovery question asked and the answer reflected in the spec
+- [ ] **Plan/spec reconciliation** (if applicable): Every user-facing item from existing plans/specs is either in the business spec or explicitly out of scope

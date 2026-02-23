@@ -152,6 +152,12 @@ This ensures:
 5. **Tag appropriately** - Use role tags (@Architect, @Engineer, @Information_Architect, @Product_Manager) to identify who asked/answered
 6. **Maintain history** - Don't delete old questions/answers; they provide valuable context
 
+## How to ask question of User
+- When you need to clarify requirements, use the ask questions tool
+- Do not ask questions as plain text - always use the ask questions tool
+- Always provide at least three viable and contextual answer options and a custom answer option with input
+- Ask one question at a time
+
 ## Role-Specific Sections
 
 The questions.md file typically contains these sections:
