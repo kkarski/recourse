@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Spectr HTML document schema: a restricted subset of HTML (same local names as HTML/XHTML)
+  aligned with specs/change_set_name/spec_sample.html.
+
+  W3C XML Schema 1.0 cannot give two sibling <div> elements different content models, and cannot
+  branch a single <div> on @type without XSD 1.1. This schema therefore uses one recursive
+  div type and one paragraph type with shared attributes; semantic layout (which @type allows
+  which children) is specified in xs:documentation below and should be enforced by tools or
+  review when strictness beyond 1.0 is required.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="unqualified"
+           attributeFormDefault="unqualified">
+
+  <xs:annotation>
+    <xs:documentation>
+      Root: html → head (title) → body (@sid).
+
+      body content (intended order, matching the sample):
+      1) h1 (@id)
+      2) p with type="desc" (@id) — feature / change-set description (markdown)
+      3) Zero or more div type="use-case" (@sid, @ts): h3 (@id), p without type (@id),
+         div type="acceptance-criteria" (p* type="acceptance-criteria" with @id @sid @ts),
+         optional div type="questions" (p* type="question"|"answer" with @author @sid @ts;
+         question may have @target; answers should omit @target)
+      4) Zero or more div type="acceptance-criteria" at body level (same p shape as nested)
+      5) Zero or more div type="questions"
+      6) Zero or more div type="feedback" (p type="feedback" with @author @ts @id @sid)
+      7) Zero or more div type="plan" (ol type="phase" [@sid optional], li type="task" @id)
+
+      Allowed elements: html, head, title, body, h1, h3, p, div, ol, li, img, ul.
+      Inside p: optional text mixed with img, ul, or ol (plan-phase ol under div remains separate).
+    </xs:documentation>
+  </xs:annotation>
+
+  <xs:simpleType name="SpectrId">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="IsoDateTime">
+    <xs:restriction base="xs:dateTime"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="DivTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="use-case"/>
+      <xs:enumeration value="acceptance-criteria"/>
+      <xs:enumeration value="questions"/>
+      <xs:enumeration value="feedback"/>
+      <xs:enumeration value="plan"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ParagraphKindEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="desc"/>
+      <xs:enumeration value="acceptance-criteria"/>
+      <xs:enumeration value="question"/>
+      <xs:enumeration value="answer"/>
+      <xs:enumeration value="feedback"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="OlKindEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="phase"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="LiKindEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="task"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="TitleType" mixed="true">
+    <xs:sequence/>
+  </xs:complexType>
+
+  <xs:complexType name="H1Type" mixed="true">
+    <xs:sequence/>
+    <xs:attribute name="id" type="SpectrId" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="H3Type" mixed="true">
+    <xs:sequence/>
+    <xs:attribute name="id" type="SpectrId" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="ImgType">
+    <xs:attribute name="src" type="xs:anyURI" use="required"/>
+    <xs:attribute name="alt" type="xs:string" use="optional"/>
+    <xs:attribute name="width" type="xs:string" use="optional"/>
+    <xs:attribute name="height" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="LiInlineType" mixed="true">
+    <xs:sequence/>
+  </xs:complexType>
+
+  <xs:complexType name="UlInlineType">
+    <xs:sequence>
+      <xs:element name="li" type="LiInlineType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ol inside p: generic ordered list (not plan phase/task). -->
+  <xs:complexType name="OlInlineType">
+    <xs:sequence>
+      <xs:element name="li" type="LiInlineType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Shared mixed body for all p elements: text plus img, ul, ol. -->
+  <xs:complexType name="PMixedContent" mixed="true">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="img" type="ImgType"/>
+      <xs:element name="ul" type="UlInlineType"/>
+      <xs:element name="ol" type="OlInlineType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <!-- First paragraph under body: type must be desc (sample line 9). -->
+  <xs:complexType name="PDescType">
+    <xs:complexContent mixed="true">
+      <xs:extension base="PMixedContent">
+        <xs:attribute name="type" type="ParagraphKindEnum" use="required" fixed="desc"/>
+        <xs:attribute name="id" type="SpectrId" use="required"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Paragraphs inside div blocks (desc only on body; here type optional for use-case narrative). -->
+  <xs:complexType name="SpectrPType">
+    <xs:complexContent mixed="true">
+      <xs:extension base="PMixedContent">
+        <xs:attribute name="id" type="SpectrId" use="required"/>
+        <xs:attribute name="type" type="ParagraphKindEnum" use="optional"/>
+        <xs:attribute name="author" type="xs:string" use="optional"/>
+        <xs:attribute name="target" type="xs:string" use="optional"/>
+        <xs:attribute name="sid" type="SpectrId" use="optional"/>
+        <xs:attribute name="ts" type="IsoDateTime" use="optional"/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="LiTaskType" mixed="true">
+    <xs:sequence/>
+    <xs:attribute name="type" type="LiKindEnum" use="required" fixed="task"/>
+    <xs:attribute name="id" type="SpectrId" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="OlPhaseType">
+    <xs:sequence>
+      <xs:element name="li" type="LiTaskType" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="type" type="OlKindEnum" use="required" fixed="phase"/>
+    <xs:attribute name="sid" type="SpectrId" use="optional"/>
+  </xs:complexType>
+
+  <!-- Single recursive div: content union of all roles from the sample. -->
+  <xs:complexType name="SpectrDivType">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="h3" type="H3Type"/>
+      <xs:element name="p" type="SpectrPType"/>
+      <xs:element name="div" type="SpectrDivType"/>
+      <xs:element name="ol" type="OlPhaseType"/>
+    </xs:choice>
+    <xs:attribute name="type" type="DivTypeEnum" use="required"/>
+    <xs:attribute name="sid" type="SpectrId" use="optional"/>
+    <xs:attribute name="ts" type="IsoDateTime" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="HeadType">
+    <xs:sequence>
+      <xs:element name="title" type="TitleType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="BodyType">
+    <xs:sequence>
+      <xs:element name="h1" type="H1Type"/>
+      <xs:element name="p" type="PDescType"/>
+      <xs:element name="div" type="SpectrDivType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="sid" type="SpectrId" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="HtmlType">
+    <xs:sequence>
+      <xs:element name="head" type="HeadType"/>
+      <xs:element name="body" type="BodyType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="html" type="HtmlType"/>
+
+</xs:schema>

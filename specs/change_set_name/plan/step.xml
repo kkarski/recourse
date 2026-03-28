@@ -1,0 +1,14 @@
+<phase id="ph1" order="1" parallel="true">
+  <desc>Step description as markdown</desc>
+  <tasks>
+    <task id="tsk123" order="1" parallel="true">Task description as markdown</task>
+    <task id="tsk3453245" order="1" parallel="true">Task description as markdown</task>
+  </tasks>
+  <acs>
+    <ac ref_id="ac45345"/>
+    <ac ref_id="ac1234"/>
+  </acs>
+  <tests>
+    <test ref_id="tst534535" phase="red|green|refactor"/>
+  </tests>
+</phase>

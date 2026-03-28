@@ -1,0 +1,20 @@
+# If installs show UNKNOWN-0.0.0, upgrade: python3 -m pip install -U pip setuptools wheel
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spectr"
+version = "0.1.1"
+description = "CLI for spec-driven feature specs: use cases, acceptance criteria, tests, and cross-role Q&A (pm, architect, engineer, qa)"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.1",
+  "lxml>=5.0",
+]
+
+[project.scripts]
+spectr = "spectr.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
