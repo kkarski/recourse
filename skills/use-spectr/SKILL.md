@@ -1,13 +1,13 @@
 ---
 name: use-spectr
-description: Use when creating or updating Spectr feature specifications from the terminal, piping entity ids between commands, configuring author roles for Q&A or feedback, or storing Markdown (including code fences and example snippets) in specification bodies.
+description: Use when creating or updating Spectr feature specifications from the terminal (spectr CLI / spectr/src/spectr/cli.py), piping entity sids between commands, using uow begin/commit/abort for batched edits, configuring author roles for Q&A or feedback, or storing Markdown (including code fences and example snippets) in specification bodies.
 ---
 
 # use-spectr
 
 ## Overview
 
-**Spectr** is a CLI for **software specifications** for new features. A spec holds **use cases**, **acceptance criteria**, **tests** (under ACs), optional **planning** (phases / tasks / refs), and **Q&A** plus **feedback** so pm, architect, engineer, qa refine requirements in one place.
+**Spectr** is a CLI for **software specifications** for new features. A spec holds **use cases**, **acceptance criteria**, **tests** (under ACs), optional **planning** (phases / tasks), and **Q&A** plus **feedback** so pm, architect, engineer, qa refine requirements in one place.
 
 **Principle:** Prefer the CLI for structural edits; defer flags and edge cases to `spectr --help` and `spectr <group> --help`.
 
@@ -16,6 +16,7 @@ description: Use when creating or updating Spectr feature specifications from th
 - Bootstrap or extend a feature spec (use cases → ACs → tests → plan).
 - Post questions, answers, or feedback with an **author role** (`--author` or default role chain).
 - Chain commands with **porcelain** (`-p`) and stdin (`--uc -`, `qs ask --pipe-id`).
+- Batch many structural edits then **one** write to disk with **`uow begin` → … → `uow commit`** (or `uow abort`).
 - Put **Markdown** in description-style fields; code fences and literal `<`/`>`/`&` in examples are stored safely (escaped on save).
 
 **Skip:** Unstructured one-off prose with no spec model; bulk changes that belong in a script or migration.
@@ -30,11 +31,14 @@ description: Use when creating or updating Spectr feature specifications from th
 | `test` | `add` (needs `--ac`), `read`, `update`, `delete` |
 | `qs` | `ask`, `answer`, `list` |
 | `feedback` | `add` |
-| `plan` | `phase-add`, `task-add`, `ac-ref`, `test-ref` |
+| `task` | `add -d '…'` (optional `--ph`: match phase sid from `task list`, or create a new auto `ph-…` phase if no match), `list` (`--ph` filters) |
 | `export` | `markdown`, `json` |
 | `conf` | `set`, `show` (default author role) |
+| `uow` | `begin`, `commit`, `abort`, `status` (multi-command edit session; see below) |
 
-**Globals:** `--spec` (main spec file, often `spec.xml`), `--phase` (plan phase doc, often `step.xml` / `plan/step.xml`), `-r` / `--role` (default author on **qs** and **feedback add** only). Omitted paths: search **upward** from cwd; `SPECTR_SPEC` / `SPECTR_PHASE` override.
+**Globals:** `--spec` (path to `spec.html`; default: walk **upward** from cwd), `-r` / `--role` (default author on **qs** and **feedback add** only). Env: **`SPECTR_SPEC`** overrides default spec path.
+
+**Entity `sid`:** Stable identifiers: once set, they are **not** rewritten on load. New elements get auto `prefix-{uuid8}` sids (see `spectr.ids`). Only **missing/blank** sids are filled when a spec is loaded. `--ph` targets an existing phase sid, or Spectr creates a new auto `ph-…` phase if there is no match.
 
 ## Roles
 
@@ -42,7 +46,7 @@ Only **`qs ask`**, **`qs answer`**, **`feedback add`** use author. Default role 
 
 ## Piping
 
-`-p` prints `kind` + tab + `id`. `ac add --uc -` reads uc id from stdin. Use the **same `--spec`** (and `--phase` if needed) on both sides of a pipe when discovery could differ.
+`-p` prints `kind` + tab + entity **`sid`**. `ac add --uc -` reads uc sid from stdin. Use the **same `--spec`** on both sides of a pipe when discovery could differ. During an open **uow** session, reads/exports see the draft (see Unit of work).
 
 ## Markdown
 
@@ -52,11 +56,43 @@ Only **`qs ask`**, **`qs answer`**, **`feedback add`** use author. Default role 
 
 | Issue | Fix |
 |-------|-----|
-| Wrong file after `cd` | `--spec` / `--phase` or env vars |
+| Wrong file after `cd` | `--spec` or `SPECTR_SPEC` |
 | Pipe id mismatch | Same `--spec`; follow `-p` / `--uc -` pattern |
 | Role ignored on `uc`/`ac` | Role only for `qs` / `feedback`; use `--author` there |
 | Treating work as “raw XML” | Edit the **specification** via Spectr; avoid hand-tag editing |
 
-## Invoke
+## Invoke the CLI
 
-`pip install -e .` in the `spectr` project (venv on), then **`spectr`**. Alternatives: **`python -m spectr`**, **`./spectr/src/spectr/cli.py`**.
+Implementation lives in **`spectr/src/spectr/cli.py`** (Click app: `cli` group, `main()` entrypoint). Use it in one of these ways:
+
+1. **Installed package** (recommended): from the `spectr` directory with your venv active, `pip install -e .`, then run **`spectr`** on your `PATH`.
+2. **Module**: from a cwd where the package resolves (e.g. repo root with `spectr` on `PYTHONPATH`, or after install), **`python -m spectr`** … same subcommands as `spectr`.
+3. **Dev tree, no install**: run **`python spectr/src/spectr/cli.py`** (or make `cli.py` executable and run it directly). The file prepends `spectr/src` to `sys.path` so the `spectr` package loads without an editable install.
+
+Pass **`--help`** on the top-level command or any group (e.g. `spectr uc --help`) for flags and arguments.
+
+## Unit of work (`uow`)
+
+By default, each mutating subcommand is its own short transaction (clone → edit → renumber DOM `id` → write **`spec.html`**). For **several edits with a single final write**, use a session:
+
+| Command | Effect |
+|---------|--------|
+| **`spectr uow begin`** | Copies the canonical spec to **`<spec-dir>/.spectr/uow-draft.html`** and records an active session for that resolved **`--spec`**. |
+| *(any mutating commands)* | They update the **draft** only (same `--spec` as `begin`). |
+| **`spectr uow commit`** | Merges the draft into the real spec (id renumbering), removes the session. |
+| **`spectr uow abort`** | Discards the draft; canonical file unchanged. |
+| **`spectr uow status`** | Prints whether a session is active and where the draft lives. |
+
+**Rules:** Use the **same** `--spec` (or discovery / `SPECTR_SPEC`) for `begin`, every command in the session, and `commit` / `abort` / `status`. While a session is open, **reads and exports** use the draft so you see uncommitted work. Stable references in scripts and pipes use entity **`sid`**, not fragment **`id`**.
+
+**Examples:**
+
+```bash
+spectr --spec ./My_Feature/spec.html uow begin
+spectr --spec ./My_Feature/spec.html uc add -t "Title" -d "Body"
+spectr --spec ./My_Feature/spec.html task add -d "Do the thing"
+spectr --spec ./My_Feature/spec.html task list
+spectr --spec ./My_Feature/spec.html task add -d "Phase-specific" --ph ph-xxxxxxxx
+spectr --spec ./My_Feature/spec.html export markdown
+spectr --spec ./My_Feature/spec.html uow commit
+```

@@ -9,7 +9,28 @@ from pathlib import Path
 from lxml import etree
 
 from spectr import spec_ops, xmlio
-from spectr.uow import SpecUnitOfWork, clone_tree, load_for_read, recompute_dom_ids
+from spectr import ids
+from spectr.uow import SpecUnitOfWork, clone_tree, ensure_missing_entity_sids, load_for_read, recompute_dom_ids
+
+
+class TestEnsureMissingEntitySidsStable(unittest.TestCase):
+    def test_preserves_existing_non_canonical_sid(self) -> None:
+        root = etree.fromstring(
+            b"<html><head><title>x</title></head><body sid=\"spec-legacy\">"
+            b'<h1 id="1">T</h1><p type="desc" id="2">d</p></body></html>'
+        )
+        self.assertFalse(ensure_missing_entity_sids(root))
+        self.assertEqual(root.find("body").get("sid"), "spec-legacy")
+
+
+class TestCanonicalSid(unittest.TestCase):
+    def test_is_canonical_sid(self) -> None:
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_UC, "uc-a1b2c3d4"))
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_Q, "q-00000000"))
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_TEST, "tst-deadbeef"))
+        self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "uc-short"))
+        self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "wrong-a1b2c3d4"))
+        self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, ""))
 
 
 class TestRecomputeDomIds(unittest.TestCase):
@@ -30,14 +51,14 @@ class TestRecomputeDomIds(unittest.TestCase):
         root = etree.fromstring(
             b'<html><head><title>x</title></head><body sid="s">'
             b'<h1 id="a">H</h1><p type="desc" id="b">D</p>'
-            b'<div type="plan"><ol type="phase" sid="ph1">'
-            b'<li type="task" id="w-old" sid="tsk-abc">t</li></ol></div>'
+            b'<div type="plan"><ol type="phase" sid="ph-11111111">'
+            b'<li type="task" id="w-old" sid="tsk-22222222">t</li></ol></div>'
             b"</body></html>"
         )
         recompute_dom_ids(root)
         li = root.find(".//li[@type='task']")
         assert li is not None
-        self.assertEqual(li.get("sid"), "tsk-abc")
+        self.assertEqual(li.get("sid"), "tsk-22222222")
         self.assertEqual(li.get("id"), "3")
 
 
@@ -65,6 +86,31 @@ class TestSpecUnitOfWork(unittest.TestCase):
             except RuntimeError:
                 pass
             self.assertEqual(path.read_bytes(), before)
+
+    def test_ensure_missing_entity_sids_fills_body_phase_task(self) -> None:
+        root = etree.fromstring(
+            b"<html><head><title>x</title></head><body>"
+            b'<h1 id="1">T</h1><p type="desc" id="2">d</p>'
+            b'<div type="plan"><ol type="phase">'
+            b'<li type="task" id="w1">one</li></ol></div></body></html>'
+        )
+        self.assertIsNone(root.find("body").get("sid"))
+        ol = root.find(".//ol[@type='phase']")
+        assert ol is not None
+        self.assertIsNone(ol.get("sid"))
+        li = root.find(".//li[@type='task']")
+        assert li is not None
+        self.assertIsNone(li.get("sid"))
+        self.assertTrue(ensure_missing_entity_sids(root))
+        bsid = root.find("body").get("sid")
+        assert bsid is not None
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_SPEC, bsid))
+        psid = ol.get("sid")
+        assert psid is not None
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_PHASE, psid))
+        tsid = li.get("sid")
+        assert tsid is not None
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_TASK, tsid))
 
     def test_load_for_read_normalizes_before_use(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -566,6 +566,23 @@ def spec_to_markdown(root: etree._Element) -> str:
                     f"- **{tp.get('sid')}** → `{tp.get('ref_id')}` "
                     f"{get_text_content(tp).strip()[:80]}"
                 )
+    lines.append("")
+    lines.append("## Delivery plan")
+    from spectr import phase_ops
+
+    plan_rows = phase_ops.plan_iter(root)
+    if not plan_rows:
+        lines.append("(no phases)")
+    else:
+        for ph_sid, tasks in plan_rows:
+            label = f"`{ph_sid}`" if ph_sid else "(phase without sid)"
+            lines.append(f"- Phase {label}")
+            if not tasks:
+                lines.append("  - _(no tasks yet)_")
+            else:
+                for tsk_sid, prev in tasks:
+                    tid = f"**{tsk_sid}** " if tsk_sid else ""
+                    lines.append(f"  - {tid}{prev}".rstrip())
     return "\n".join(lines).strip() + "\n"
 
 

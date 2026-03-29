@@ -35,7 +35,7 @@ class TestXmlTextContent(unittest.TestCase):
             head = etree.SubElement(root, "head")
             t = etree.SubElement(head, "title")
             xmlio.set_text_content(t, "T")
-            body = etree.SubElement(root, "body", sid="spec-test")
+            body = etree.SubElement(root, "body", sid="spec-88888888")
             h1 = etree.SubElement(body, "h1", id="h1")
             h1.text = "T"
             d = etree.SubElement(body, "p", type="desc", id="d1")
@@ -54,14 +54,14 @@ class TestXmlTextContent(unittest.TestCase):
 
     def test_uc_update_clears_stale_child_nodes(self) -> None:
         root = etree.fromstring(
-            '<html><head><title>x</title></head><body sid="s">'
+            '<html><head><title>x</title></head><body sid="spec-99999999">'
             '<h1 id="h">x</h1><p type="desc" id="d">d</p>'
-            '<div type="use-case" sid="uc1" ts="">'
+            '<div type="use-case" sid="uc-aaaaaaaa" ts="">'
             "<h3 id=\"t\">t</h3>"
             '<p id="n">old<b>bad</b></p></div></body></html>'
         )
-        spec_ops.uc_update(root, "uc1", None, "only plain text now")
-        row = spec_ops.uc_read(root, "uc1")
+        spec_ops.uc_update(root, "uc-aaaaaaaa", None, "only plain text now")
+        row = spec_ops.uc_read(root, "uc-aaaaaaaa")
         assert row is not None
         _, de = row
         self.assertEqual(de, "only plain text now")

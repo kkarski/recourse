@@ -3,11 +3,10 @@
   Spectr HTML document schema: a restricted subset of HTML (same local names as HTML/XHTML)
   aligned with specs/change_set_name/spec_sample.html.
 
-  W3C XML Schema 1.0 cannot give two sibling <div> elements different content models, and cannot
-  branch a single <div> on @type without XSD 1.1. This schema therefore uses one recursive
-  div type and one paragraph type with shared attributes; semantic layout (which @type allows
-  which children) is specified in xs:documentation below and should be enforced by tools or
-  review when strictness beyond 1.0 is required.
+  W3C XML Schema 1.0 cannot branch a single <div> on @type for different content models, and
+  libxml2 additionally fails to validate an xs:choice of multiple <div> branches (same QName).
+  This schema uses one recursive div type and shared paragraph attributes; semantic layout and
+  body block order are enforced by spectr.struct_validate on load (see spectr.spec_ops._BODY_BLOCK_ORDER).
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            elementFormDefault="unqualified"
@@ -17,17 +16,16 @@
     <xs:documentation>
       Root: html → head (title) → body (@sid).
 
-      body content (intended order, matching the sample):
-      1) h1 (@id)
-      2) p with type="desc" (@id) — feature / change-set description (markdown)
-      3) Zero or more div type="use-case" (@sid, @ts): h3 (@id), p without type (@id),
-         div type="acceptance-criteria" (p* type="acceptance-criteria" with @id @sid @ts),
-         optional div type="questions" (p* type="question"|"answer" with @author @sid @ts;
-         question may have @target; answers should omit @target)
-      4) Zero or more div type="acceptance-criteria" at body level (same p shape as nested)
-      5) Zero or more div type="questions"
-      6) Zero or more div type="feedback" (p type="feedback" with @author @ts @id @sid)
-      7) Zero or more div type="plan" (ol type="phase" [@sid optional], li type="task" @id)
+      Entity @sid values are stable once assigned (Spectr does not rewrite existing sids on load).
+      New sids use a prefix (spec, uc, ac, tst, q, ph, tsk, fb) + hyphen + 8 lowercase hex digits
+      (first UUID segment). Blank/missing @sid on known entities is filled when the spec is loaded.
+
+      Intended body div order (enforced on load, not by XSD alone):
+      use-case* → acceptance-criteria* → tests* → questions* → feedback* → plan*
+
+      use-case div (intended): h3, narrative p(s), optional nested acceptance-criteria and/or
+      questions divs. acceptance-criteria div (intended): p* (type=acceptance-criteria), optional
+      questions div at end.
 
       Allowed elements: html, head, title, body, h1, h3, p, div, ol, li, img, ul.
       Inside p: optional text mixed with img, ul, or ol (plan-phase ol under div remains separate).
@@ -44,10 +42,21 @@
     <xs:restriction base="xs:dateTime"/>
   </xs:simpleType>
 
+  <xs:simpleType name="IsoDateTimeOrEmpty">
+    <xs:union memberTypes="IsoDateTime">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:maxLength value="0"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:union>
+  </xs:simpleType>
+
   <xs:simpleType name="DivTypeEnum">
     <xs:restriction base="xs:string">
       <xs:enumeration value="use-case"/>
       <xs:enumeration value="acceptance-criteria"/>
+      <xs:enumeration value="tests"/>
       <xs:enumeration value="questions"/>
       <xs:enumeration value="feedback"/>
       <xs:enumeration value="plan"/>
@@ -61,6 +70,7 @@
       <xs:enumeration value="question"/>
       <xs:enumeration value="answer"/>
       <xs:enumeration value="feedback"/>
+      <xs:enumeration value="test"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -107,14 +117,12 @@
     </xs:sequence>
   </xs:complexType>
 
-  <!-- ol inside p: generic ordered list (not plan phase/task). -->
   <xs:complexType name="OlInlineType">
     <xs:sequence>
       <xs:element name="li" type="LiInlineType" minOccurs="1" maxOccurs="unbounded"/>
     </xs:sequence>
   </xs:complexType>
 
-  <!-- Shared mixed body for all p elements: text plus img, ul, ol. -->
   <xs:complexType name="PMixedContent" mixed="true">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="img" type="ImgType"/>
@@ -123,7 +131,6 @@
     </xs:choice>
   </xs:complexType>
 
-  <!-- First paragraph under body: type must be desc (sample line 9). -->
   <xs:complexType name="PDescType">
     <xs:complexContent mixed="true">
       <xs:extension base="PMixedContent">
@@ -133,7 +140,6 @@
     </xs:complexContent>
   </xs:complexType>
 
-  <!-- Paragraphs inside div blocks (desc only on body; here type optional for use-case narrative). -->
   <xs:complexType name="SpectrPType">
     <xs:complexContent mixed="true">
       <xs:extension base="PMixedContent">
@@ -142,7 +148,8 @@
         <xs:attribute name="author" type="xs:string" use="optional"/>
         <xs:attribute name="target" type="xs:string" use="optional"/>
         <xs:attribute name="sid" type="SpectrId" use="optional"/>
-        <xs:attribute name="ts" type="IsoDateTime" use="optional"/>
+        <xs:attribute name="ref_id" type="SpectrId" use="optional"/>
+        <xs:attribute name="ts" type="IsoDateTimeOrEmpty" use="optional"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -151,17 +158,17 @@
     <xs:sequence/>
     <xs:attribute name="type" type="LiKindEnum" use="required" fixed="task"/>
     <xs:attribute name="id" type="SpectrId" use="required"/>
+    <xs:attribute name="sid" type="SpectrId" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="OlPhaseType">
     <xs:sequence>
-      <xs:element name="li" type="LiTaskType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="li" type="LiTaskType" minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="type" type="OlKindEnum" use="required" fixed="phase"/>
     <xs:attribute name="sid" type="SpectrId" use="optional"/>
   </xs:complexType>
 
-  <!-- Single recursive div: content union of all roles from the sample. -->
   <xs:complexType name="SpectrDivType">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="h3" type="H3Type"/>
@@ -171,7 +178,7 @@
     </xs:choice>
     <xs:attribute name="type" type="DivTypeEnum" use="required"/>
     <xs:attribute name="sid" type="SpectrId" use="optional"/>
-    <xs:attribute name="ts" type="IsoDateTime" use="optional"/>
+    <xs:attribute name="ts" type="IsoDateTimeOrEmpty" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="HeadType">

@@ -164,7 +164,9 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
     The specification is a single HTML document (see ``specs/spectr.xsd``): ``body``
     carries the spec ``sid``; use cases, acceptance criteria, tests, Q&A, feedback,
     and delivery plan live in typed ``div`` / ``p`` / ``ol`` / ``li`` elements. Entity
-    ids are stored on ``sid`` (and unique ``id`` on each element).
+    ids are stored on ``sid`` (and unique ``id`` on each element). New ``sid`` values use
+    ``prefix`` + hyphen + UUID segment (see ``spectr.ids``); assigned sids stay stable—only
+    missing sids are filled on load (``spectr.uow.ensure_missing_entity_sids``).
 
     Markdown in text fields
 
@@ -184,14 +186,14 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
       Change-set blurb: ``spectr spec read`` · ``spectr spec update -d '…'``.
 
       Discovery walks upward for ``spec.html`` unless ``--spec`` or ``SPECTR_SPEC`` is set.
-      Planning (``plan phase-add``, ``plan task-add``) edits the same file.
+      Delivery plan: ``spectr task add -d '…'`` · ``spectr task list`` (optional ``--ph PHASE_SID``). Plan/phase markup is created when missing.
 
     Unit of work
 
       Each mutating subcommand runs one short transaction: clone → edit → renumber ``id`` → write.
 
       **Session (several commands, one write to ``spec.html``):** run ``spectr uow begin`` (for the
-      same ``--spec``), then any mix of uc/ac/test/qs/plan/feedback commands; they edit a draft
+      same ``--spec``), then any mix of uc/ac/test/task/qs/feedback commands; they edit a draft
       under ``<spec-dir>/.spectr/``. Run ``spectr uow commit`` to merge the draft into the real
       spec (with id renumbering) and clear the session, or ``spectr uow abort`` to discard the
       draft. ``spectr uow status`` shows whether a session is active.
@@ -967,71 +969,76 @@ def feedback_add_cmd(
         click.echo(f"added feedback {eid}")
 
 
-# --- plan ---
+# --- task (delivery plan: li type=task) ---
 
 
-@cli.group(invoke_without_command=True)
-@click.pass_context
-def plan(ctx: click.Context) -> None:
-    """Edit ``div type=plan`` in the same HTML spec: ``ol type=phase`` lists and ``li type=task`` items."""
-    if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
-        return
-
-
-@plan.command("phase-add")
-@click.option(
-    "--sid",
-    "-s",
-    "phase_sid",
-    default=None,
-    help="Optional phase sid for the new ol (default: allocate ph-…).",
+_PH_HELP = (
+    "Phase sid from `task list`: append under that phase. If it does not exist, a new phase "
+    "is created (auto ph-… sid) and the task is added there. If omitted: use the last phase, "
+    "or create one when none exist."
 )
-@click.option("--porcelain", "-p", is_flag=True)
-@click.pass_obj
-def plan_phase_add_cmd(
-    obj: dict,
-    phase_sid: str | None,
-    porcelain: bool,
-) -> None:
-    """Append an ``ol type=phase`` inside the plan block (creates ``div type=plan`` if missing)."""
+
+
+def _exec_task_add_auto(obj: dict, body: str, phase_sid: str | None, porcelain: bool) -> None:
     path = _work(obj)
     try:
         with _mutating(path) as root:
-            eid = phase_ops.phase_add(root, phase_sid=phase_sid)
-    except ValueError as e:
-        raise click.ClickException(str(e)) from e
-    _emit(porcelain, ids.PREFIX_PHASE, eid)
-    if not porcelain:
-        click.echo(f"added plan phase {eid}")
-
-
-@plan.command("task-add")
-@click.option("--desc", "-d", "body", required=True, help=_MARKDOWN_TEXT_HELP)
-@click.option(
-    "--phase-sid",
-    default=None,
-    help="Target ol phase sid (default: last phase in document order).",
-)
-@click.option("--porcelain", "-p", is_flag=True)
-@click.pass_context
-def plan_task_add_cmd(
-    ctx: click.Context,
-    body: str,
-    phase_sid: str | None,
-    porcelain: bool,
-) -> None:
-    """Append a ``li type=task`` to a phase list (run ``plan phase-add`` first if none exist)."""
-    obj = ctx.obj
-    path = _work(obj)
-    try:
-        with _mutating(path) as root:
-            eid = phase_ops.task_add(root, body, phase_sid=phase_sid)
+            eid = phase_ops.task_add_auto(root, body, phase_sid=phase_sid)
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     _emit(porcelain, ids.PREFIX_TASK, eid)
     if not porcelain:
         click.echo(f"added task {eid}")
+
+
+@cli.group("task", invoke_without_command=True)
+@click.pass_context
+def task_cli(ctx: click.Context) -> None:
+    """List or add delivery-plan tasks (``li type=task`` under ``div type=plan``)."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        return
+
+
+@task_cli.command("list")
+@click.option(
+    "--ph",
+    "phase_sid",
+    default=None,
+    help="Only list tasks under this phase sid (exact match on the phase ol).",
+)
+@click.pass_context
+def task_list_cmd(ctx: click.Context, phase_sid: str | None) -> None:
+    """Print tasks as tab-separated phase sid, task sid, body preview (use ``--ph`` to filter one phase)."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    want = str(phase_sid).strip() if phase_sid is not None and str(phase_sid).strip() else None
+    rows = phase_ops.task_list(root, phase_sid=want)
+    if not rows:
+        if want:
+            click.echo(f"(no tasks for phase {want!r})")
+        else:
+            click.echo("(no plan tasks)")
+        return
+    for ph_sid, tsk_sid, prev in rows:
+        ps = ph_sid if ph_sid else ""
+        ts = tsk_sid if tsk_sid else ""
+        click.echo(f"{ps}\t{ts}\t{prev}")
+
+
+@task_cli.command("add")
+@click.option("--desc", "-d", "body", required=True, help=_MARKDOWN_TEXT_HELP)
+@click.option("--ph", "phase_sid", default=None, help=_PH_HELP)
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def task_add_delivery_cmd(
+    ctx: click.Context,
+    body: str,
+    phase_sid: str | None,
+    porcelain: bool,
+) -> None:
+    """Append a task; creates plan/phases with auto sids when needed. ``--ph`` targets a phase by sid or creates one."""
+    _exec_task_add_auto(ctx.obj, body, phase_sid, porcelain)
 
 
 # --- uow (multi-command session) ---
