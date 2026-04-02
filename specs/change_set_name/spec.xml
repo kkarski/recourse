@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<spec id="spec123" title="{title of feature of change set}">
+  <desc>{Description of feature of change set in markdown}</desc>
+  <ucs>
+    <uc id="uc123" title="{use case title}">
+      <desc>{use case }</desc>
+      <acs>
+        <ac id="ac4534534">
+          <desc>{use case description in cucumber syntax using markdown}</desc>
+          <qs>
+            <q id="q56456" author="pm" target="architect" ts="2000-01-01T00:00:00Z" ref_id="ac56534">
+              <desc>{question text}</desc>
+              <answer author="architect" ts="2000-01-01T00:00:00Z">{answer text}</answer>
+            </q>
+            <q id="q86567" author="architect" target="pm" ts="2000-01-01T00:00:00Z" ref_id="q56456">
+              <desc>{followup question text}</desc>
+              <answer author="pm" ts="2000-01-01T00:00:00Z">{answer text}</answer>
+            </q>
+          </qs>
+        </ac>
+      </acs>
+      <qs>
+        <q id="" author="pm" target="architect" ts="2000-01-01T00:00:00Z" ref_id="uc123">
+          <desc>{question text}</desc>
+          <answer author="" ts="2000-01-01T00:00:00Z">{answer text}</answer>
+        </q>
+      </qs>
+    </uc>
+  <uc id="uc-a01721fa" title="T"><desc>D</desc></uc></ucs>
+  <acs>
+    <ac id="ac1234">
+      <desc>{acceptance criteria text}</desc>
+      <qs>
+        <q id="q56457" author="pm" target="architect" ts="2000-01-01T00:00:00Z" ref_id="ac1234">
+          <desc>{question about acceptance criteria}</desc>
+          <answer author="architect" ts="2000-01-01T00:00:00Z">{answer text}</answer>
+        </q>
+      </qs>
+      <tests>
+        <test id="tst534535" ref_id="ac1234" ts="2000-01-01T00:00:00Z">
+          <desc>{test description}</desc>
+        </test>
+        <test id="tst55454" ref_id="ac1234" ts="2000-01-01T00:00:00Z">
+          <desc>{test description}</desc>
+        </test>
+      </tests>
+    </ac>
+  </acs>
+  <qs><q id="q-ce9162c4" ts="2026-03-27T21:21:55Z" ref_id="spec123"><desc>anon?</desc></q></qs>
+  <feedback>
+    <comment id="fb1" author="{role}" ts="2000-01-01T00:00:00Z">{comment}</comment>
+  </feedback>
+  <plan>
+    <phase id="ph1">
+      <ucs>
+        <uc id="uc123"/>
+      </ucs>
+      <acs>
+        <ac id="ac1234"/>
+      </acs>
+    </phase>
+  </plan>
+</spec>
