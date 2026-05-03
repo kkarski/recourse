@@ -238,11 +238,11 @@ For significant decisions, create ADR:
 
 PM incorporates this into the spec.
 
-## Applying Model-Driven Design
+## Applying Domain-Driven Design
 
-### Core MDD Principles
+### Core DDD Principles
 
-**From `process/standards/mdd.md`:**
+**From `references/ddd.md`:**
 
 1. **Domain-Centric Design**
     - Domain model is the heart

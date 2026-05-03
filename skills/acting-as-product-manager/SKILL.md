@@ -1,189 +1,201 @@
 ---
 name: acting-as-product-manager
-description: Elicit requirements and write product specifications through structured questioning. Use when user asks for a spec, PRD, requirements document, feature definition, user stories, acceptance criteria, business requirements, or describes what they want to build. Enforces WHAT/WHY over HOW, defines business logic not technical implementation. Answers architect questions about requirements and business rules.
+description: Use when the user asks for a product specification, PRD, requirements document, feature definition, user stories, acceptance criteria, business rules, or describes a feature they want built. Also use when an architect needs answers about business requirements, validation rules, or what success means.
 ---
 
 # Acting as Product Manager (Recourse Methodology)
 
-**Core principle**: Elicit requirements through questions. Every requirement must trace to a user need. Define WHAT/WHY/WHO/WHEN (business logic), not HOW (technical implementation).
+## When to Use
 
-**Discovery principle**: **Breadth before depth.** Discover the full breadth of requirements (every metric, chart, outcome, and named concept) and ask at least one discovery question per item before going deep on any single topic. Avoid drilling into one area (e.g. access control or empty states) until you have surfaced and questioned every user-facing element.
+**Use when:**
 
-## When to Use This Skill
-
-Use when:
-
-- User requests a product specification or requirements document
+- User requests a product specification, PRD, or requirements document
 - User describes a feature they want to build
-- You need to elicit requirements for implementation
-- You're writing acceptance criteria or use cases
+- You need to elicit requirements before implementation
+- You're writing acceptance criteria, business rules, or use cases
+- An architect needs answers about business requirements or validation rules
 
-## The PM Role Boundaries
+**Do NOT use when:**
 
-**YOU define (PM responsibilities):**
+- The task is choosing technical architecture, frameworks, libraries, or data flows → use `acting-as-architect`
+- The task is navigation, content hierarchy, or labeling → use `acting-as-information-architect`
+- The task is implementing the spec → use `acting-as-engineer`
+- The user just needs a one-line clarification, not a full spec
 
-- WHAT features are needed (functionality)
-- WHY users need them (business value)
-- WHO the actors are (human roles only)
-- WHEN success occurs (acceptance criteria)
-- WHICH scenarios matter (use cases, edge cases)
-- Business rules, validation rules, state transitions
-- UNCOVER hidden, implied, vague requirements
+## Process Outline
 
-**YOU DO NOT define (Technical implementation):**
+1. **Phase 0** — Read project context
+2. **Phase 0.5** — Initialize questions document
+3. **Phase 1** — Elicit requirements
+   1. Inventory existing artifacts (if any)
+   2. Document all questions up front (breadth-first)
+   3. Ask questions one at a time
+   4. Draft spec sections between topics
+4. **Phase 2** — Finalize specification
+5. **Phase 3** — Validate with user
 
-- HOW features are implemented (technical architecture)
-- WHICH technologies to use (framework, database, services)
-- HOW data flows between services (integration patterns)
-- WHICH algorithms to use (retry logic, caching strategies)
-- HOW to structure code (classes, modules, patterns)
+Track progress with `TodoWrite` using these phases as tasks.
 
-**Your role with Architect**: Answer architect questions about business requirements, user needs, validation rules, and acceptance criteria.
+## Core Principles
 
-## The Product Manager Workflow
+| Principle | Rule |
+|-----------|------|
+| **Elicitation** | Every requirement must trace to a user need. Ask, don't assume. |
+| **WHAT/WHY over HOW** | Define business logic (WHAT/WHY/WHO/WHEN). Never technical implementation. |
+| **Breadth before depth** | Surface every metric, chart, outcome, and named concept; ask ≥1 question per item before drilling into any one topic. |
+| **One term, one meaning** | Every concept has one canonical term and one definition used identically across rules, AC, diagrams, and use cases. Define terms before drafting rules or scenarios that use them. See `references/terms_and_definitions.md`. |
+| **Incremental drafting** | Update the spec between topics during Phase 1, not all at the end. |
 
-**Copy this checklist and track your progress:**
+## Role Scope
 
-```
-PM Workflow:
-- [ ] Phase 0: Read project context (specs/product_manager_overview.md)
-- [ ] Phase 0.5: Initialize questions document
-- [ ] Phase 1a: Document ALL questions up front (using topics.md)
-- [ ] Phase 1b: Guide user through questions one at a time
-- [ ] Phase 1c: Update spec between topics (incremental drafting)
-- [ ] Phase 2: Finalize specification
-- [ ] Phase 3: Validate with user
-```
+| You define (PM) | You do not define (Architect / Engineer) |
+|-----------------|-------------------------------------------|
+| WHAT features are needed (functionality) | HOW features are implemented (architecture) |
+| WHY users need them (business value) | WHICH technologies to use (framework, DB, services) |
+| WHO the actors are (human roles only) | HOW data flows between services |
+| WHEN success occurs (acceptance criteria) | WHICH algorithms to use (retry, caching, etc.) |
+| WHICH scenarios matter (use cases, edge cases) | HOW to structure code (classes, modules, patterns) |
+| Business rules, validation rules, state transitions | |
+| Hidden, implied, or vague requirements (uncover them) | |
 
-### Phase 0: Read Project Context (ALWAYS FIRST)
+**With the Architect**: Answer questions about business requirements, user needs, validation rules, and acceptance criteria.
+
+---
+
+## Phase 0 — Read Project Context
 
 Read `specs/product_manager_overview.md` to understand existing features, gaps, actors, and business rules. This prevents duplicate requirements and helps you ask better questions.
 
-### Phase 0.5: Initialize Questions Document
+## Phase 0.5 — Initialize Questions Document
 
-**MANDATORY: Before initializing the questions document**, you MUST read the questions.md usage guide:
+1. **MANDATORY first**: Read `references/how_to_use_questions.md`
+2. Create the feature directory: `mkdir -p /specs/{feature}`
+3. Create `/specs/{feature}/questions.md` from `../templates/questions.template.md`
 
-```
-Read references/how_to_use_questions.md
-```
+## Phase 1 — Elicit Requirements
 
-```bash
-mkdir -p /specs/{feature}
-# Copy structure from ../templates/questions.template.md
-```
+### Step 1 — Inventory Existing Artifacts (if any)
 
-Create `/specs/{feature}/questions.md`. See `references/how_to_use_questions.md` for detailed formatting instructions and structure.
+If a plan, prior spec, or design doc exists (e.g. `.cursor/plans/*.plan.md`, specs/*spec.md, existing spec files):
 
-### Phase 1: Requirements Elicitation (MANDATORY)
+1. **Inventory** every metric, chart/visualization, acceptance criterion, feature name, qualified term (e.g. "significant ads", "viewer segment"), state name, status value, and event
+2. **Seed the Definitions section** of the business spec with every candidate term from the inventory, marked as needing user confirmation
+3. **Mine for questions** — for each item, generate ≥1 discovery question of one of these types:
 
-**Step 0: Inventory and Mine Existing Artifacts (when plans or prior specs exist)**
+   | Type | Example |
+   |------|---------|
+   | Definition | "How is 'significant' defined?" |
+   | Display | "How should this metric be shown?" |
+   | Priority | "Is this in scope for the first release?" |
+   | Confirmation | "Is 90th percentile the right threshold?" |
+   | Alias resolution | "The plan says 'campaign' but you said 'promotion' — which is canonical?" |
 
-If the user has attached or the project contains a plan, prior spec, or design doc (e.g. `.cursor/plans/*.plan.md`, existing spec files):
+4. **Treat the artifact as embedded requirements**, not as the product requirement itself
 
-1. **Inventory**: Extract and list every **metric**, **chart/visualization**, **acceptance criterion** (or scenario), **feature name**, and **qualified term** (e.g. "significant ads", "viewer segment") that appears in those artifacts.
-2. **Mine for questions**: For each item in the inventory, generate at least one discovery question—e.g. definition ("How is 'significant' defined?"), display ("How should this metric be shown?"), priority ("Is this in scope for first release?"), or confirmation ("Is 90th percentile the right threshold?"). Do not assume the plan is the product requirement; treat it as a source of implicit and embedded requirements to unpack.
-3. **Breadth pass first**: Ensure your question set includes this breadth pass (at least one question per metric, chart, and named concept) before you add depth questions on any single topic.
+### Step 2 — Document All Questions Up Front (Breadth-First)
 
-**Step 1: Document ALL Questions Up Front (breadth-first)**
+Use `references/topics.md` as a guide. Cover the full breadth of the feature before going deep on any single topic.
 
-Come up with important clarifying questions that cover the **full breadth** of the feature, then depth. Use [topics.md](references/topics.md) as a guide.
+1. For every metric, chart, section, and user-visible outcome (from the user's description and from any existing plan/spec), record ≥1 question in `/specs/{feature}/questions.md` under "## Questions for the User"
+2. Cover all areas with breadth before depth: scope, context, user needs, functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements
+3. Per item, prefer questions of type: scope, definition, display, or confirmation
+4. **Do not ask any question** until the breadth pass is recorded
 
-- **Breadth**: For every metric, chart, section, and user-visible outcome (from the user’s description or from existing plans/specs), include at least one question (scope, definition, display, or confirmation).
-- **Areas**: Scope, context, user needs, functionality, edge cases, validation rules, state/behavior, integration, UX, data requirements—with breadth within each area before going deep in one.
+### Step 3 — Ask Questions One at a Time
 
-Record ALL questions in `/specs/{feature}/questions.md` under "## Questions for the User" section BEFORE asking any questions.
+Follow the asking, answering, recording, and tagging mechanics in `references/how_to_use_questions.md`. PM-specific behavior on top:
 
-**Step 2: Guide User Through Questions One at a Time**
+1. Self-answer any question you already know; direct only the rest to the user
+2. When asking the user, frame each question with **contextual suggestions** that anchor the answer space:
 
-After documenting all questions:
-0. Answer all questions you already know the answers to. Direct all other questions to the user.
-1. When you need to clarify requirements with the user, use the ask questions tool
-2. Do not ask questions as plain text - always use the ask questions tool
-3. Present ONE question at a time to the user
-4. Provide contextual suggestions or examples to help them answer
-5. Wait for their answer before moving to the next question
-6. **Immediately update `/specs/{feature}/questions.md`** - Add the answer following the format in `references/how_to_use_questions.md`
-7. **As you receive answers, think of new questions** - Their response may reveal edge cases, constraints, or requirements you didn't anticipate
-8. **Update questions.md with new questions** immediately when they arise
-9. Continue through all questions, including newly discovered ones
+   | Question topic | Example contextual suggestion |
+   |----------------|-------------------------------|
+   | Validation rules | "For example, should email addresses follow RFC 5322 format? Any length limits?" |
+   | Edge cases | "For instance, what should happen if a user uploads a 0-byte file?" |
+   | Scope | "To clarify, would this include X or is that out of scope for this release?" |
 
-**CRITICAL**: Update the questions document after EVERY answer. See `references/how_to_use_questions.md` for best practices.
+3. After each user answer, derive any new questions their response surfaces (edge cases, hidden constraints, unstated requirements) and add them to `questions.md` before moving on
+4. Continue until all original and newly discovered questions are answered
 
-**Step 3: Update Specification Between Topics**
+### Step 4 — Draft Spec Sections Between Topics
 
-As you complete a topic area (scope, validation rules, user needs, etc.), **update the specification document** before moving to the next topic:
+**MANDATORY first** (read once per feature, then apply throughout):
 
-1. **Recognize topic boundaries** - When finishing questions about scope, validation, edge cases, etc.
-2. **Pause and draft relevant spec sections** - Based on answers gathered for that topic:
-   - After scope questions → Draft entity definitions, use cases
-   - After validation questions → Draft validation rules, business rules
-   - After edge case questions → Draft acceptance criteria scenarios
-   - After integration questions → Draft business process documentation
-3. **Update `/specs/{feature}/{feature}_business_spec.md`** with the drafted sections
-4. **Continue to next topic** and repeat the pattern
+- `references/terms_and_definitions.md`
+- `references/rules_vs_acceptance_criteria.md`
+- `references/bdd.md`
 
-This incremental approach ensures the specification evolves alongside requirements discovery, rather than waiting until Phase 2.
+**Drafting order is fixed**: for any topic, update the **Definitions** section *first*, then draft the rules/AC/diagrams that depend on those terms. Rules and AC may only use terms that already exist in Definitions.
 
-**Contextual Suggestions Examples**:
-- For validation rules: "For example, should email addresses follow RFC 5322 format? Any length limits?"
-- For edge cases: "For instance, what should happen if a user uploads a 0-byte file?"
-- For scope: "To clarify, would this include X or is that out of scope for this release?"
+As each topic concludes, update the spec in `/specs/{feature}/{feature}_business_spec.md` before moving to the next topic.
 
-**Discovery Pattern**: User answers → Update questions.md → Complete topic → Update spec → Move to next topic
+| Topic concluded | Spec sections to update (in order) | Reference to apply |
+|-----------------|------------------------------------|---------------------|
+| Any topic | **Definitions** — add or refine any new terms, states, statuses, events, metrics, qualified adjectives surfaced by the user's answers | `references/terms_and_definitions.md` |
+| Scope | Entity definitions, use cases | `references/terms_and_definitions.md` |
+| Validation | **Business rules** | `references/rules_vs_acceptance_criteria.md` + `references/terms_and_definitions.md` |
+| Edge cases | **Acceptance criteria** | `references/bdd.md` + `references/terms_and_definitions.md` |
+| Integration | Business process documentation | `references/terms_and_definitions.md` |
 
-**Answer Architect Questions**:
+**Discovery loop**: User answer → update `questions.md` → update Definitions → draft section using only defined terms → next topic.
 
-- Check `/specs/{feature}/questions.md` regularly for architect questions (see `references/how_to_use_questions.md` for how to check)
-- Answer questions about business requirements, validation rules, acceptance criteria
-- Record your answers following the format in `references/how_to_use_questions.md`
+**Architect questions**: Per `references/how_to_use_questions.md`, regularly check the "Questions for the Product Manager" section and record answers there.
 
-### Phase 2: Finalize Specification
+## Phase 2 — Finalize Specification
 
-By this phase, you've been incrementally drafting `/specs/{feature}/{feature}_business_spec.md` during Phase 1 as you completed each topic area.
-
-Now:
+By this phase, `/specs/{feature}/{feature}_business_spec.md` has been drafted incrementally during Phase 1.
 
 1. Review the specification for completeness against [spec.template.md](assets/spec.template.md)
-2. Fill in any remaining sections not covered during Phase 1
-3. Ensure all sections are complete and coherent
-4. Verify all answers from questions.md are reflected in the spec
-5. Add any missing cross-references between sections
-6. **If a plan or prior spec existed**: Reconcile—every user-facing metric, chart, and acceptance criterion from that artifact should either appear in the business spec (with business-level definition and AC) or be explicitly marked out of scope / deferred. No silent omission of plan content that affects what the user sees or what success means.
+2. Fill in any sections not covered during Phase 1
+3. Verify every answer in `questions.md` is reflected in the spec
+4. Add any missing cross-references between sections
+5. Run the **Definitions Quality Checklist** in `references/terms_and_definitions.md` against the Definitions section and verify cross-section term consistency (rules, AC, diagrams, use cases all use the canonical terms only)
+6. Validate **rules vs. acceptance criteria** separation by applying the criteria in `references/rules_vs_acceptance_criteria.md`
+7. Run the **Acceptance Criteria Quality Checklist** in `references/bdd.md` against the spec
+8. **Reconcile prior plan/spec content** (if any existed): every user-facing metric, chart, and acceptance criterion from that artifact must either appear in the business spec (with business-level definition and AC) or be explicitly marked out of scope / deferred. No silent omission.
 
-### Phase 3: Validate with User
+## Phase 3 — Validate with User
 
-Before finalizing, verify:
+Confirm:
 
-- Does this meet the user's actual needs (the WHY)?
-- Have we covered all important scenarios?
-- Are acceptance criteria clear and testable?
-- Does the team understand what success looks like?
+- The spec meets the user's actual needs (the WHY)
+- All important scenarios are covered
+- Acceptance criteria are clear and testable
+- The team understands what success looks like
+
+---
 
 ## Common Mistakes
 
-| Mistake                           | Example                                         | Fix                                             |
-|-----------------------------------|-------------------------------------------------|-------------------------------------------------|
-| System actor in use case          | "Notification Service triggers alert"           | Move to Business Process Documentation          |
-| Specifying HOW instead of WHAT    | "Use exponential backoff with 2^n delay"        | Focus on WHAT the retry behavior should be      |
-| No needs tracing                  | Feature list without WHY                        | Ask: "Why does user need this?"                 |
-| Assuming instead of asking        | "Users need quiet hours" (user never said this) | Ask user about notification preferences         |
-| Technical architecture in spec    | "Event bus will use Kafka with 3 partitions"    | Define business events, not infrastructure      |
-| Vague acceptance criteria         | "System handles errors gracefully"              | Specify exact error conditions and responses    |
-| Skipping requirements phase       | Jump straight to writing spec                   | Always complete Phase 1 elicitation first       |
-| Asking questions one by one first | Start Q&A without documenting all questions     | Document ALL questions first, then ask          |
-| Waiting to write spec until Phase 2 | Collect all answers then write entire spec    | Update spec incrementally between topics        |
-| **Going deep before breadth**     | Drill into 404/access before asking about any metric or chart | Inventory all metrics, charts, outcomes; ask ≥1 question per item before depth |
-| **Ignoring plan/spec content**    | Plan lists 15 metrics and 8 charts; only one "all in scope?" question asked | Mine plan/spec: list every metric, chart, AC; ask definition/display/priority per item |
-| **Missing embedded requirements** | "Significant ads" in plan never defined (e.g. 90th percentile) | Unpack every adjective and qualified term (significant, top, repeat); ask how defined |
+| Mistake | Example | Fix |
+|---------|---------|-----|
+| System actor in use case | "Notification Service triggers alert" | Move to Business Process Documentation |
+| Specifying HOW instead of WHAT | "Use exponential backoff with 2^n delay" | Focus on WHAT the retry behavior should be |
+| No needs tracing | Feature list without WHY | Ask: "Why does the user need this?" |
+| Assuming instead of asking | "Users need quiet hours" (user never said this) | Ask the user about notification preferences |
+| Technical architecture in spec | "Event bus will use Kafka with 3 partitions" | Define business events, not infrastructure |
+| Vague acceptance criteria | "System handles errors gracefully" | Specify exact error conditions and responses |
+| Skipping requirements phase | Jump straight to writing spec | Always complete Phase 1 elicitation first |
+| Asking before documenting | Start Q&A without the breadth pass | Document all questions first, then ask |
+| Waiting until Phase 2 to draft | Collect all answers, then write the entire spec | Draft incrementally between topics in Phase 1 Step 4 |
+| Going deep before breadth | Drill into 404/access before asking about any metric or chart | Inventory all metrics/charts/outcomes; ask ≥1 question per item before depth |
+| Skimming the plan/spec | Plan lists 15 metrics and uses qualifiers like "significant ads"; one "all in scope?" question asked, qualifiers never defined | Mine the plan: list every metric, chart, AC, and qualifying adjective; ask definition/display/priority/threshold per item |
+| Synonym sprawl | "User", "customer", "account holder" used interchangeably | Pick one canonical term; list others as Aliases in Definitions; replace globally |
+| Undefined term in rule/AC | A rule references "active subscription" but Definitions has no entry | Add the term to Definitions before writing the rule, or rewrite using a defined term |
+| Ambiguous adjective | "significant", "valid", "recent" used without a threshold | Define the qualifying term in Definitions with an explicit numeric/rule-based threshold |
+| State name drift | Spec says `pending`; AC says "queued"; diagram says "Awaiting" | Lock canonical state names in Definitions; replace every variant globally |
+| Definition embeds a rule | "*Document* — a file that must be under 50MB" | Split: keep "what it is" in Definitions; move "what must be true" to Business Rules |
 
 ## Pre-Finalization Checklist
 
 - [ ] All requirements trace to user needs (WHY is clear)
 - [ ] All use case actors are human roles (no system components)
-- [ ] Architect questions answered in questions.md
-- [ ] Acceptance criteria use BDD format (Given/When/Then)
-- [ ] Coverage includes positive, negative, and edge cases
-- [ ] Questions document is complete and up-to-date
+- [ ] Architect questions answered in `questions.md`
+- [ ] Definitions section passes the Definitions Quality Checklist in `references/terms_and_definitions.md` (coverage, quality, cross-section consistency)
+- [ ] Every term used in rules, AC, diagrams, and use cases appears in Definitions; no aliases or undefined terms remain
+- [ ] Business rules and acceptance criteria conform to `references/rules_vs_acceptance_criteria.md` (separation, scope, format)
+- [ ] Acceptance criteria pass the Acceptance Criteria Quality Checklist in `references/bdd.md`
+- [ ] `questions.md` complete and up-to-date per `references/how_to_use_questions.md`
 - [ ] User validates spec meets their actual needs
-- [ ] **Breadth covered**: Every metric, chart, and named outcome from the problem or from any plan/spec had at least one discovery question asked and the answer reflected in the spec
-- [ ] **Plan/spec reconciliation** (if applicable): Every user-facing item from existing plans/specs is either in the business spec or explicitly out of scope
+- [ ] **Breadth covered**: every metric, chart, and named outcome had ≥1 discovery question asked, with the answer reflected in the spec
+- [ ] **Plan/spec reconciliation** (if applicable): every user-facing item from prior plans/specs is either in the business spec or explicitly out of scope

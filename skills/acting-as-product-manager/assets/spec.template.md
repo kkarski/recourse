@@ -2,6 +2,69 @@
 
 ## Specification
 
+### Definitions
+
+[Canonical glossary for this spec. Every term used in Scope, Use Cases, Business Rules, Acceptance Criteria, and diagrams must appear here. See `references/terms_and_definitions.md` for authoring rules and the quality checklist.]
+
+#### Actors / Roles
+
+**User**
+- **Definition**: An end user who uploads documents and retrieves processed results via the API.
+- **Aliases**: (none)
+
+**System Administrator**
+- **Definition**: A technical administrator responsible for system maintenance, monitoring, and configuration.
+- **Aliases**: "admin" (do not use)
+
+#### Concepts / Entities
+
+**Document**
+- **Definition**: A file uploaded by a User for processing into markdown form.
+- **Aliases**: "file" (use only when referring to the raw upload before validation), "doc" (do not use)
+
+**Cached markdown**
+- **Definition**: A `.md` file produced by successful processing of a Document, stored for reuse on repeat retrieval.
+- **Aliases**: (none)
+
+#### States (Document lifecycle)
+
+| State | Meaning |
+|-------|---------|
+| `pending` | Document uploaded, awaiting processing |
+| `processing` | Document is currently being parsed |
+| `completed` | Document parsed successfully; cached markdown available |
+| `failed` | Processing terminated with an error |
+
+#### Status / Enumerations
+
+**Validation result**
+- **Values**: `Valid`, `Invalid`, `Rejected`
+- **Definition**: Outcome of file-type, file-size, and integrity checks performed on a Document upload.
+
+#### Events
+
+| Event | Definition |
+|-------|------------|
+| `DocumentUploaded` | A User has uploaded a Document file |
+| `DocumentValidationCompleted` | Validation has finished and produced a Validation result |
+| `DocumentProcessingCompleted` | Document successfully parsed and cached |
+| `DocumentProcessingFailed` | Processing terminated with an error |
+
+#### Metrics
+
+**Cache hit rate**
+- **Definition**: Number of Document retrievals served from cached markdown ÷ total Document retrievals, over a rolling 24-hour window.
+- **Unit**: Percentage (0–100)
+
+#### Qualified Terms
+
+**Supported file type**
+- **Definition**: A file whose extension is one of `.pdf`, `.docx`, or `.txt`.
+- **Counter-examples**: `.md`, `.exe`, `.zip` are NOT supported file types.
+
+**Oversized file**
+- **Definition**: A file larger than 50 megabytes.
+
 ### Scope
 
 [Clear succinct overview of what use cases are in scope vs out of scope for this specification.]
