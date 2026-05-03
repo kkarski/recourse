@@ -2,7 +2,7 @@
 
 **Why this matters**: Business rules, acceptance criteria, and BDD scenarios are only as clear as the words they use. A spec with undefined or inconsistent terms produces ambiguous rules, untestable acceptance criteria, and divergent implementations. RuleSpeak (the Business Rules Manifesto) and BDD (via Domain-Driven Design's *ubiquitous language*) both require that every concept have **one name** and **one definition** that the whole team — business, product, engineering, QA — uses identically.
 
-This document defines how to establish, maintain, and validate definitions in Recourse business specs.
+This document defines how to establish, maintain, and validate definitions in Spectr business specs.
 
 ## Core Principle
 

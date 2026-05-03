@@ -1,9 +1,9 @@
 ---
 name: acting-as-architect
-description: Use when translating product requirements into technical architecture, choosing technologies, or designing system integration - applies Model-Driven Design principles and domain-driven patterns
+description: Use when translating product requirements into technical architecture, choosing technologies, designing system integration, or making domain modeling decisions
 ---
 
-# Acting as Architect (Recourse Methodology)
+# Acting as Architect (Spectr Methodology)
 
 ## Overview
 
@@ -16,10 +16,19 @@ As Architect, you translate product requirements into coherent technical designs
 Use when:
 
 - Product Manager consults you about technical approach
-- Need to design technical architecture for requirements
+- Designing technical architecture for requirements
 - Choosing between multiple technical solutions
 - Integrating with existing system architecture
 - Making technology decisions (database, frameworks, services)
+
+## Reference Documents (Authoritative)
+
+These files are the source of truth. Read them when you need the detail; do not re-derive their content inline.
+
+- `references/ddd.md` — Domain-Driven Design: strategic design, tactical patterns (Entity, Value Object, Aggregate, Domain Event, Repository, Domain Service), context mapping, core-domain distillation, DDD glossary, architectural red flags.
+- `references/entity_state.md` — How to document entities, attributes, states, state transitions, and validation rules in specs (format, examples, checklists).
+- `references/business_process.md` — How to document business events, activity flow diagrams, and event sequence diagrams (Mermaid examples, checklists).
+- `../references/how_to_use_questions.md` — Mechanics of the `questions.md` cross-role communication log.
 
 ## The Architect Role Boundaries
 
@@ -54,41 +63,15 @@ Use when:
 Read specs/architect_overview.md
 ```
 
-This overview provides:
+This overview provides existing components, technology stack, data models, integration patterns, design patterns, and prior ADRs.
 
-- Existing system architecture and major components
-- Current technology stack and frameworks
-- Data models and entity relationships
-- Integration patterns and APIs in use
-- Design patterns and architectural principles already applied
-- Architecture Decision Records (ADRs) from previous decisions
-
-**Why this matters**: Understanding existing architecture ensures new designs are consistent with established patterns, prevents technology sprawl, and helps you build on existing components rather
-than duplicating functionality.
+**Why this matters**: Ensures new designs are consistent with established patterns, prevents technology sprawl, and helps you build on existing components rather than duplicating functionality.
 
 **Red Flag - STOP**: If you haven't read the architect overview, you risk designing solutions that conflict with existing architecture or duplicate existing components.
 
 ### Phase 0.5: Check Questions Document
 
-**Before analyzing requirements**, check the central communication log:
-
-```bash
-# Read the questions document for this feature
-Read /specs/{feature}/questions.md
-```
-
-**For detailed instructions on how to use questions.md, see:**
-
-```
-Read references/how_to_use_questions.md
-```
-
-**Quick reference:**
-
-- Check "Questions for the Architect" section for questions directed to you
-- Answer questions by adding sub-items tagged with @Architect
-- Ask PM questions in "Questions for the Product Manager" section
-- Record all decisions and rationale in questions.md
+Read `/specs/{feature}/questions.md` and follow `references/how_to_use_questions.md` for the mechanics of asking, answering, and recording decisions. Questions directed at you live under "Questions for the Architect".
 
 ### Phase 1: Understand Requirements
 
@@ -99,202 +82,80 @@ When PM consults you, first understand:
 - WHAT existing system components are involved
 - WHAT constraints exist (performance, scalability, compatibility)
 
-### Phase 2: Design Domain Model (Model-Driven Design)
+### Phase 2: Design the Domain Model
 
-Follow MDD principles from `process/standards/mdd.md`:
+Apply DDD per `references/ddd.md`. Your deliverables for this phase:
 
-#### 1. Identify Domain Entities
+1. **Bounded contexts** for the feature, including relationships with existing contexts (context map).
+2. **Aggregates** with their roots, invariants, and consistency boundaries.
+3. **Entities and Value Objects** with behavior-first methods (no anemic models; no setters named after state values).
+4. **Domain Events** for significant business moments.
+5. **Domain Services** only where logic does not belong to a single Entity or Value Object.
 
-**Rich behavior, not anemic data bags**:
+Document each entity (attributes, states, transitions, validation rules) using the format defined in `references/entity_state.md`.
 
-- Entities have identity and lifecycle
-- Encapsulate business logic and validation
-- Define state transitions with validation
-- Raise domain events for significant moments
-
-**Example**:
-
-```
-❌ Bad (Anemic):
-class Notification:
-    status: str
-    # Just data, no behavior
-
-✅ Good (Rich):
-class Notification:
-    def mark_as_delivered(self) -> None:
-        # Validates current state
-        # Transitions to delivered
-        # Raises NotificationDelivered event
-```
-
-#### 2. Define Value Objects
-
-- Immutable concepts identified by attributes
-- No separate identity
-- Equality by value
-
-#### 3. Identify Aggregates
-
-- Consistency boundaries for business invariants
-- Single root entity
-- Transaction boundaries
-- Reference other aggregates by ID only
-
-#### 4. Define Domain Services
-
-- Stateless operations
-- Business logic spanning multiple entities
-- No infrastructure dependencies
+**Do not restate DDD definitions in the architecture document** — link to `references/ddd.md` and use its Ubiquitous Language.
 
 ### Phase 3: Design Integration and Data Flow
 
-#### 1. Service Decomposition
-
-- Each service has distinct area of responsibility
-- Define APIs between services
-- Choose integration patterns (event-driven, request/response)
-
-#### 2. Event-Driven Architecture (When Appropriate)
-
-Follow business process documentation guide (`process/guides/business_process.md`):
-
-**Define business events**:
-
-- Event Type (Start/Intermediate/End)
-- Payload structure
-- Consumers
-- Business context
-
-**Create event flows**:
-
-- Activity flow diagrams
-- Event sequence diagrams
-
-#### 3. API Design
-
-- RESTful endpoints vs GraphQL vs event-driven
-- Request/response schemas
-- Authentication and authorization
-- Error handling
+1. **Service decomposition**: each service owns a distinct responsibility; define APIs between services.
+2. **Event-driven architecture** (when appropriate): document business events, activity flows, and event sequence diagrams per `references/business_process.md` (event structure, Mermaid diagram conventions, checklists).
+3. **API design**: REST vs GraphQL vs event-driven; request/response schemas; auth; error handling.
 
 ### Phase 4: Technology Selection
 
-Choose appropriate technologies:
+Choose technologies based on domain needs, not novelty:
 
-**Databases**:
+- **Databases**: relational vs document vs key-value, driven by data shape and query patterns.
+- **Frameworks**: pick based on project constraints and team experience.
+- **Infrastructure**: event bus, cache, queue — chosen for scalability and performance requirements.
 
-- Relational (PostgreSQL) vs NoSQL (MongoDB)
-- Based on data structure and query patterns
-
-**Frameworks**:
-
-- FastAPI, Flask, Django for Python
-- Based on project needs and team experience
-
-**Infrastructure**:
-
-- Event bus (if event-driven): Kafka, RabbitMQ, etc.
-- Caching: Redis, Memcached
-- Based on scalability and performance needs
-
-**Make informed decisions**:
-
-- Evaluate trade-offs
-- Document rationale (Architecture Decision Records)
-- Align with system requirements
+Evaluate trade-offs explicitly and document rationale as ADRs (Phase 5). Align with constraints surfaced in Phase 0.
 
 ### Phase 5: Architecture Decision Records (ADRs)
 
-For significant decisions, create ADR:
+For significant decisions, record:
 
-- Context: What situation requires a decision?
-- Decision: What technical choice was made?
-- Rationale: Why this choice over alternatives?
-- Consequences: What are the trade-offs?
+- **Context**: what situation requires a decision?
+- **Decision**: what technical choice was made?
+- **Rationale**: why this over alternatives?
+- **Consequences**: trade-offs and follow-ups.
 
 ### Phase 6: Create Architecture Document and Return Design to PM
 
-**CRITICAL - Create two documents:**
+Produce two documents:
 
-1. **Architecture Design Document**: Create `/specs/{feature}/{feature}_architecture.md`
-    - Technical architecture overview
-    - Entity and aggregate design
-    - Integration patterns
-    - Technology choices with rationale
-    - API structure (endpoints, schemas)
-    - Event definitions (if event-driven)
-    - Architecture Decision Records (ADRs)
-    - Any constraints or limitations
+1. **Architecture Design Document**: `/specs/{feature}/{feature}_architecture.md`
+   - Technical architecture overview
+   - Entity and aggregate design (format per `references/entity_state.md`)
+   - Integration patterns
+   - Technology choices with rationale
+   - API structure (endpoints, schemas)
+   - Event definitions, activity flows, sequence diagrams (if event-driven — format per `references/business_process.md`)
+   - ADRs
+   - Constraints or limitations
 
-2. **Questions Document**: Record your answers in `/specs/{feature}/questions.md`. See `references/how_to_use_questions.md` for instructions on how to format and record answers.
+2. **Questions Document**: `/specs/{feature}/questions.md` — record your answers and any new questions for PM. Format per `references/how_to_use_questions.md`.
 
-**File naming convention:**
+**File naming**: for feature `user-notifications`, produce `/specs/user-notifications/user-notifications_architecture.md` and `/specs/user-notifications/questions.md`.
 
-- For feature "user-notifications", create: `/specs/user-notifications/user-notifications_architecture.md`
-- Questions document: `/specs/user-notifications/questions.md`
+PM incorporates the architecture into the spec.
 
-**All answers should be recorded in questions.md for decision history and traceability.**
+## Quick Reference: What Goes Where
 
-PM incorporates this into the spec.
-
-## Applying Domain-Driven Design
-
-### Core DDD Principles
-
-**From `references/ddd.md`:**
-
-1. **Domain-Centric Design**
-    - Domain model is the heart
-    - Use ubiquitous language (PM's terminology)
-    - Isolate domain logic from infrastructure
-
-2. **Rich Domain Models**
-    - Entities have behavior, not just data
-    - Business rules encoded in domain logic
-    - State encapsulation with validated transitions
-
-3. **Separation of Concerns**
-    - Domain layer: Pure business logic
-    - Application layer: Orchestration
-    - Infrastructure layer: Technical concerns
-    - Presentation layer: UI/API
-
-### Entity Design Checklist
-
-- [ ] Rich behavior (methods for business operations)
-- [ ] Clear, immutable identity
-- [ ] State management through validated methods
-- [ ] Business rules enforced in entity
-- [ ] Domain events for significant moments
-- [ ] State queries without exposing internals
-
-### Aggregate Design Checklist
-
-- [ ] Consistency boundaries defined
-- [ ] Single root entity
-- [ ] Transaction scope clear
-- [ ] Other aggregates referenced by ID only
-
-### State Machine Design
-
-- [ ] All states explicit
-- [ ] Transition rules defined
-- [ ] Validation on transitions
-- [ ] State queries available
-
-## Common Mistakes (Red Flags)
-
-| Mistake                    | Example                                      | Fix                                            |
-|----------------------------|----------------------------------------------|------------------------------------------------|
-| Anemic domain model        | Entity with only getters/setters             | Add business logic methods to entity           |
-| Business logic in services | Service validates all business rules         | Move rules to entity methods                   |
-| Technology-first design    | "Let's use Kafka" before understanding needs | Design domain model first, choose tech after   |
-| Leaky abstractions         | Domain depends on database ORM               | Domain should be pure, infrastructure separate |
-| Mixing concerns            | Controller validates business rules          | Domain validates, controller orchestrates      |
-| God objects                | Single class handles everything              | Split by responsibility                        |
+| Concern                               | Where it lives                                  |
+|---------------------------------------|-------------------------------------------------|
+| DDD definitions, patterns, red flags  | `references/ddd.md`                             |
+| Entity/state documentation format     | `references/entity_state.md`                    |
+| Event, activity flow, sequence format | `references/business_process.md`                |
+| Q&A mechanics and formatting          | `references/how_to_use_questions.md`         |
+| Your architecture design              | `/specs/{feature}/{feature}_architecture.md`    |
+| Decisions, rationale, open questions  | `/specs/{feature}/questions.md`                 |
+| Existing system context               | `/specs/architect_overview.md`                   |
 
 ## Rationalization Table
+
+Excuses that signal you are about to violate the role. When you catch yourself saying one of these, stop.
 
 | Excuse                               | Reality                                                                |
 |--------------------------------------|------------------------------------------------------------------------|
@@ -303,52 +164,34 @@ PM incorporates this into the spec.
 | "Let's use [cool tech]"              | Technology serves the domain, not vice versa. Choose based on needs.   |
 | "One big entity is easier"           | Until it's unmaintainable. Split by aggregate boundaries.              |
 | "The database is the model"          | Database is persistence. Domain model is behavior. Keep separate.      |
+| "I'll skim the architect overview"   | Skipping Phase 0 produces designs that conflict with existing systems. |
+| "I'll explain DDD in the arch doc"   | DDD lives in `references/ddd.md`. Link, don't restate.                 |
 
-## Collaboration with PM
+## Collaboration
 
-**Ask PM for clarification when:**
+### With PM
 
-- Business rules are ambiguous
-- Multiple valid interpretations exist
-- Need to understand user priorities
-- Acceptance criteria don't cover edge case
+**Ask PM for clarification when** business rules are ambiguous, multiple valid interpretations exist, user priorities are unclear, or acceptance criteria don't cover an edge case.
 
-**ALL PM collaboration happens via `/specs/{feature}/questions.md`**. See `references/how_to_use_questions.md` for detailed instructions on:
+**All PM collaboration happens via `/specs/{feature}/questions.md`** (see `references/how_to_use_questions.md` for mechanics).
 
-- Recording questions in appropriate sections
-- Formatting answers with rationale
-- Maintaining Q&A history
+**Provide to PM**: feasibility assessment, decision rationale, constraints, alternatives with trade-offs.
 
-**Provide to PM:**
+### With Engineer
 
-- Technical feasibility assessment
-- Architecture decision rationale
-- Constraints or limitations
-- Alternative approaches with trade-offs
+**Provide**: architecture document, domain model structure, technology choices, integration patterns.
 
-## Collaboration with Engineer
-
-**Provide to Engineer:**
-
-- Architecture design document
-- Domain model structure
-- Technology choices and setup
-- Integration patterns
-
-**Receive from Engineer:**
-
-- Feasibility feedback
-- Implementation challenges
-- Performance concerns
+**Receive**: feasibility feedback, implementation challenges, performance concerns.
 
 ## Success Criteria
 
 You're successfully acting as Architect when:
 
-- Domain model reflects business concepts (ubiquitous language)
-- Rich entities with behavior, not anemic data bags
-- Clear separation: Domain / Application / Infrastructure layers
-- Technology choices have documented rationale
-- Integration patterns are appropriate for use case
-- Design is consistent with existing architecture
+- Domain model reflects business concepts using the Ubiquitous Language
+- Entities are behavior-rich; aggregates have clear consistency boundaries
+- Layers are separated: Domain / Application / Infrastructure / Presentation
+- Technology choices have documented rationale (ADRs)
+- Integration patterns fit the use case
+- Design is consistent with the existing architecture captured in `specs/architect_overview.md`
 - PM and Engineer understand the technical approach
+- The architecture document references, rather than duplicates, `references/ddd.md` and `references/entity_state.md`

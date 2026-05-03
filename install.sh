@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Install recourse skills under ~/.claude/skills (bind mount or symlink).
-# Run from the recourse repo; requires sufficient privileges for mount.
+# Install spectr skills under ~/.claude/skills (bind mount or symlink).
+# Run from the spectr repo; requires sufficient privileges for mount.
 
 set -e
 
-RECOURSE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE="${RECOURSE_ROOT}/skills"
+SPECTR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${SPECTR_ROOT}/skills"
 TARGET_BASE="${HOME}/.claude/skills"
 
 if [[ ! -d "$SOURCE" ]]; then
@@ -16,7 +16,7 @@ fi
 mkdir -p "$TARGET_BASE"
 
 # Reference file for symlinking
-REFERENCE_FILE="${RECOURSE_ROOT}/skills/references/how_to_use_questions.md"
+REFERENCE_FILE="${SPECTR_ROOT}/skills/references/how_to_use_questions.md"
 
 # Mount or symlink each individual skill folder
 for skill_dir in "$SOURCE"/*/; do

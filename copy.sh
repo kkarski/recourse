@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Copy recourse skills to ~/.claude/skills (physical copy).
+# Copy spectr skills to ~/.claude/skills (physical copy).
 # Overwrites any existing files in the target location.
 
 set -e
 
-RECOURSE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE="${RECOURSE_ROOT}/skills"
+SPECTR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${SPECTR_ROOT}/skills"
 TARGET_BASE="${HOME}/.claude/skills"
 
 if [[ ! -d "$SOURCE" ]]; then
@@ -16,7 +16,7 @@ fi
 mkdir -p "$TARGET_BASE"
 
 # Reference file for copying
-REFERENCE_FILE="${RECOURSE_ROOT}/skills/references/how_to_use_questions.md"
+REFERENCE_FILE="${SPECTR_ROOT}/skills/references/how_to_use_questions.md"
 
 # Copy each individual skill folder
 for skill_dir in "$SOURCE"/*/; do
@@ -57,7 +57,7 @@ for skill_dir in "$SOURCE"/*/; do
     mkdir -p "$skill_ref_dir"
     skill_ref_file="${skill_ref_dir}/how_to_use_questions.md"
     # Remove existing file/symlink in target location to avoid "same file" error
-    # This only modifies ~/.claude/skills, not the recourse source folder
+    # This only modifies ~/.claude/skills, not the spectr source folder
     if [[ -e "$skill_ref_file" ]]; then
       rm -f "$skill_ref_file"
     fi

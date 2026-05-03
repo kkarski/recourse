@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Uninstall recourse skills from ~/.claude/skills
+# Uninstall spectr skills from ~/.claude/skills
 # Removes all symlinks and unmounts bind mounts created by install.sh
-# Also removes any recourse-related items even if they no longer exist in source
+# Also removes any spectr-related items even if they no longer exist in source
 
 set -e
 
-RECOURSE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE="${RECOURSE_ROOT}/skills"
+SPECTR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE="${SPECTR_ROOT}/skills"
 TARGET_BASE="${HOME}/.claude/skills"
 
 if [[ ! -d "$TARGET_BASE" ]]; then
@@ -14,7 +14,7 @@ if [[ ! -d "$TARGET_BASE" ]]; then
   exit 0
 fi
 
-echo "Uninstalling recourse skills from $TARGET_BASE..."
+echo "Uninstalling spectr skills from $TARGET_BASE..."
 
 # Get list of skill names from source (if it exists)
 declare -A SOURCE_SKILLS
@@ -29,7 +29,7 @@ if [[ -d "$SOURCE" ]]; then
   done
 fi
 
-# Process all directories in target to find recourse-related items
+# Process all directories in target to find spectr-related items
 for skill_target in "$TARGET_BASE"/*/; do
   if [[ ! -d "$skill_target" ]]; then
     continue
@@ -38,39 +38,39 @@ for skill_target in "$TARGET_BASE"/*/; do
   skill_name="$(basename "$skill_target")"
   skill_target="${TARGET_BASE}/${skill_name}"
   
-  # Check if this is a recourse skill by:
+  # Check if this is a spectr skill by:
   # 1. Checking if it's a symlink/mount to our source
   # 2. Checking if the skill name exists in our source
-  # 3. Checking if it contains recourse-related content
+  # 3. Checking if it contains spectr-related content
   
-  is_recourse_skill=false
+  is_spectr_skill=false
   
   # Check if it's mounted from our source
   if mountpoint -q "$skill_target" 2>/dev/null; then
     # Try to determine if it's from our source (mounts are harder to check)
     # We'll assume mounted directories in ~/.claude/skills are likely from us
-    is_recourse_skill=true
+    is_spectr_skill=true
   # Check if it's a symlink to our source
   elif [[ -L "$skill_target" ]]; then
     link_target="$(readlink -f "$skill_target")"
     if [[ "$link_target" == "$(readlink -f "$SOURCE/${skill_name}")" ]] || [[ "$link_target" == "$SOURCE/${skill_name}" ]]; then
-      is_recourse_skill=true
+      is_spectr_skill=true
     fi
   # Check if skill name exists in our source
   elif [[ -n "${SOURCE_SKILLS[$skill_name]}" ]]; then
-    is_recourse_skill=true
+    is_spectr_skill=true
   fi
   
-  # If we determined it's a recourse skill, process it
-  if [[ "$is_recourse_skill" == "true" ]]; then
+  # If we determined it's a spectr skill, process it
+  if [[ "$is_spectr_skill" == "true" ]]; then
     echo "Processing $skill_name..."
     
     # Remove symlink for references/how_to_use_questions.md
     skill_ref_link="${skill_target}/references/how_to_use_questions.md"
     if [[ -L "$skill_ref_link" ]]; then
       # Check if it points to our reference file before removing
-      if [[ -f "${RECOURSE_ROOT}/skills/references/how_to_use_questions.md" ]]; then
-        if [[ "$(readlink -f "$skill_ref_link")" == "$(readlink -f "${RECOURSE_ROOT}/skills/references/how_to_use_questions.md")" ]]; then
+      if [[ -f "${SPECTR_ROOT}/skills/references/how_to_use_questions.md" ]]; then
+        if [[ "$(readlink -f "$skill_ref_link")" == "$(readlink -f "${SPECTR_ROOT}/skills/references/how_to_use_questions.md")" ]]; then
           rm -f "$skill_ref_link"
           echo "  Removed symlink: $skill_ref_link"
         fi

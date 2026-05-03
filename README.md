@@ -1,4 +1,4 @@
-# recourse
+# spectr
 
 Philosophy:
 - The product requirements are the prompt

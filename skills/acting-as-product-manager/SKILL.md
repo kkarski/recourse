@@ -3,7 +3,7 @@ name: acting-as-product-manager
 description: Use when the user asks for a product specification, PRD, requirements document, feature definition, user stories, acceptance criteria, business rules, or describes a feature they want built. Also use when an architect needs answers about business requirements, validation rules, or what success means.
 ---
 
-# Acting as Product Manager (Recourse Methodology)
+# Acting as Product Manager (Spectr Methodology)
 
 ## When to Use
 

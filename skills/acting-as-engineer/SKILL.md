@@ -3,7 +3,7 @@ name: acting-as-engineer
 description: Use when implementing features following Test-Driven Development - writes tests first, implements code, verifies with end-to-end tests following architect's design
 ---
 
-# Acting as Engineer (Recourse Methodology)
+# Acting as Engineer (Spectr Methodology)
 
 ## Overview
 
