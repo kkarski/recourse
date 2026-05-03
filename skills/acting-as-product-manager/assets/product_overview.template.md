@@ -197,9 +197,11 @@ understanding the system when planning new features and making product decisions
 
 ### Core Business Rules
 
-- **Rule 1**: [Business rule description]
-- **Rule 2**: [Business rule description]
-- **Rule 3**: [Business rule description]
+> Every business rule must have a unique, stable ID of the form `BR N`. IDs are permanent: never re-number, never delete (mark as deprecated instead). See `references/rules_vs_acceptance_criteria.md` for the full convention.
+
+- **BR 1**: [Business rule description]
+- **BR 2**: [Business rule description]
+- **BR 3**: [Business rule description]
 
 ### Validation Requirements
 

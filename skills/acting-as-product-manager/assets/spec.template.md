@@ -457,13 +457,29 @@ stateDiagram-v2
     failed --> [*]
 ```
 
-**Validation Rules**:
+**Business Rules**:
 
-- File type must be supported (PDF, DOCX, TXT)
-- File size must be within limits (max 50MB)
-- File must not be corrupted or empty
-- Markdown files (.md) are rejected as input
-- File path must be valid and accessible
+#### Requirements for Business Rule Management
+
+- **Every business rule must have a unique, stable ID** of the form `BR N` (e.g. `BR 1`, `BR 2`). IDs are assigned in the order rules are first added and are referenced from acceptance criteria, tests, plan tasks, and architect/engineer questions. See `references/rules_vs_acceptance_criteria.md` for the full convention.
+
+- **Never re-number business rules once created**: Once a rule has been assigned an ID (e.g. `BR 1`, `BR 2`), that ID must remain permanent. Do not renumber existing rules even if others are added, removed, or reordered.
+
+- **Never delete business rules once created**: If a rule is no longer needed or becomes obsolete, mark it as deprecated rather than deleting it. Use the following format:
+  - `- **~~BR X~~** *(DEPRECATED YYYY-MM-DD — reason)*: [original rule text]`
+  - Or keep the entry and add a `**Status**: Deprecated (reason, date)` line beneath it.
+
+- **New rules take the next unused number**: If the highest existing rule is `BR 12`, the next new rule is `BR 13`, even if `BR 5` is deprecated.
+
+- **Acceptance criteria reference rules by ID**: Each `AC N` should cite the `BR N`s it verifies (e.g. "Verifies BR 3, BR 7").
+
+#### Rules
+
+- **BR 1 — Supported file types**: File type must be one of PDF, DOCX, or TXT.
+- **BR 2 — Maximum file size**: File size must not exceed 50 MB.
+- **BR 3 — Non-empty, non-corrupt content**: The uploaded file must be non-empty and parseable; corrupted or empty files are rejected.
+- **BR 4 — Markdown rejection**: Files with extension `.md` are rejected as input.
+- **BR 5 — Accessible file path**: The file path must be valid and accessible to the system.
 
 
 ### E2E Test Cases

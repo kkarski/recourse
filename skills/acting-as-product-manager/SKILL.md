@@ -133,7 +133,7 @@ As each topic concludes, update the spec in `/specs/{feature}/{feature}_business
 |-----------------|------------------------------------|---------------------|
 | Any topic | **Definitions** — add or refine any new terms, states, statuses, events, metrics, qualified adjectives surfaced by the user's answers | `references/terms_and_definitions.md` |
 | Scope | Entity definitions, use cases | `references/terms_and_definitions.md` |
-| Validation | **Business rules** | `references/rules_vs_acceptance_criteria.md` + `references/terms_and_definitions.md` |
+| Validation | **Business rules** (each with a stable `BR N` ID) | `references/rules_vs_acceptance_criteria.md` + `references/terms_and_definitions.md` |
 | Edge cases | **Acceptance criteria** | `references/bdd.md` + `references/terms_and_definitions.md` |
 | Integration | Business process documentation | `references/terms_and_definitions.md` |
 
@@ -185,6 +185,9 @@ Confirm:
 | Ambiguous adjective | "significant", "valid", "recent" used without a threshold | Define the qualifying term in Definitions with an explicit numeric/rule-based threshold |
 | State name drift | Spec says `pending`; AC says "queued"; diagram says "Awaiting" | Lock canonical state names in Definitions; replace every variant globally |
 | Definition embeds a rule | "*Document* — a file that must be under 50MB" | Split: keep "what it is" in Definitions; move "what must be true" to Business Rules |
+| Business rule without an ID | "- File size must be under 50MB" listed as a bare bullet | Assign a stable ID: "- **BR 2**: File size must not exceed 50 MB". Never re-number; mark obsolete rules as deprecated instead of deleting. See `references/rules_vs_acceptance_criteria.md`. |
+| Renumbering or deleting a rule | Removing `BR 5` and shifting `BR 6 → BR 5` | IDs are permanent. Mark `BR 5` as deprecated and add new rules at the next unused number. |
+| AC doesn't cite the rule it verifies | `AC 3` checks file-size rejection but doesn't reference `BR 2` | Add "Verifies BR N" to the acceptance criterion so rule→AC traceability is explicit. |
 
 ## Pre-Finalization Checklist
 
@@ -194,6 +197,8 @@ Confirm:
 - [ ] Definitions section passes the Definitions Quality Checklist in `references/terms_and_definitions.md` (coverage, quality, cross-section consistency)
 - [ ] Every term used in rules, AC, diagrams, and use cases appears in Definitions; no aliases or undefined terms remain
 - [ ] Business rules and acceptance criteria conform to `references/rules_vs_acceptance_criteria.md` (separation, scope, format)
+- [ ] Every business rule has a unique, stable `BR N` ID; no rule has been renumbered or deleted (deprecated rules retain their original ID)
+- [ ] Each acceptance criterion references the `BR N`(s) it verifies, so every business rule traces to at least one acceptance criterion
 - [ ] Acceptance criteria pass the Acceptance Criteria Quality Checklist in `references/bdd.md`
 - [ ] `questions.md` complete and up-to-date per `references/how_to_use_questions.md`
 - [ ] User validates spec meets their actual needs
