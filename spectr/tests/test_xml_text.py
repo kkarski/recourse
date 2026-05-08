@@ -60,11 +60,19 @@ class TestXmlTextContent(unittest.TestCase):
             "<h3 id=\"t\">t</h3>"
             '<p id="n">old<b>bad</b></p></div></body></html>'
         )
-        spec_ops.uc_update(root, "uc-aaaaaaaa", None, "only plain text now")
+        spec_ops.uc_update(
+            root,
+            "uc-aaaaaaaa",
+            title="t",
+            desc="only plain text now",
+            trigger="tr",
+            actors=("Actor",),
+            preconditions=("pre",),
+            postconditions=("post",),
+        )
         row = spec_ops.uc_read(root, "uc-aaaaaaaa")
         assert row is not None
-        _, de = row
-        self.assertEqual(de, "only plain text now")
+        self.assertEqual(row.desc, "only plain text now")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 ---
 name: acting-as-scrum-master
-description: Turns a finished product specification into phased architecture, design, testing, and implementation plans with traceability. Use when dividing a spec into delivery phases, prioritizing use cases and acceptance criteria, aligning architecture to a spec, or producing a phasing plan with UC/AC coverage. Assumes specs follow the acting-as-product-manager template (Scope, Use Cases, Acceptance Criteria, Business Process Documentation, entities, E2E tests).
+description: Turns a finished product specification into phased architecture, design, testing, and implementation plans with traceability. Use when dividing a spec into delivery phases, prioritizing use cases and acceptance criteria, aligning architecture to a spec, or producing a phasing plan with UC/AC coverage. Assumes requirements live in Spectr at `specs/{feature}/{feature}_spec.html` (see `using-spectr`, `acting-as-product-manager`).
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Assumptions
 
-- The spec follows the structure in [`skills/acting-as-product-manager/assets/spec.template.md`](../../../skills/acting-as-product-manager/assets/spec.template.md): **Scope**, **Context**, **Use Cases** (with actors and flows), **Acceptance Criteria** (stable IDs — do not renumber or delete per template rules; deprecate obsolete ACs), **Business Process Documentation** (events, flows, sequences), **Entity Definition**, **E2E Test Cases**.
+- The source spec is the Spectr file **`specs/{feature}/{feature}_spec.html`**. Read it via **`spectr export markdown`** per **`using-spectr`** (not raw HTML as the primary surface). It holds **use cases**, **acceptance criteria**, **business rules**, **definitions**, tests, Q&A, etc., as structured by **`acting-as-product-manager`** / **`using-spectr`** — do not assume a Markdown template checklist.
 - Phasing is **dependency-first**: a phase is valid only if every UC/AC it claims can be satisfied given prior phases, data model, and runtime behavior.
 
 ## Procedure
@@ -25,7 +25,7 @@ disable-model-invocation: true
 Do **not** treat a phasing plan as authoritative if the spec still contradicts itself or leaves critical holes.
 
 - Run a **contradiction and gap pass**: ownership of data (where fields live), default or edge behaviors, lifecycle gates, delete/soft-delete semantics, concurrency, and anything that would change aggregates or APIs.
-- If the team uses a **questions / decisions log**, reconcile it with the business spec; stale architect answers that predate model moves (e.g. field moved from one aggregate to another) must be **updated or marked superseded** before architecture work proceeds.
+- If the team uses a **questions / decisions log**, reconcile it with the Spectr spec; stale architect answers that predate model moves (e.g. field moved from one aggregate to another) must be **updated or marked superseded** before architecture work proceeds.
 - Close gaps with **short, explicit stakeholder Q&A** (batch related questions); record decisions in the spec or decision log. Avoid baking **unconfirmed defaults** into the plan without labeling them as assumptions.
 
 ### 3. Cluster capabilities
@@ -127,11 +127,11 @@ Optional: a **mermaid** phase chain diagram `P1 → P2 → …` when it clarifie
 - **Dependency-first ordering**: prevents “phase 1” plans that omit prerequisites for invite or handoff behavior.
 - **Full UC/AC coverage**: use the appendix; fix mistakes like wrong-phase UCs immediately.
 - **Architecture sync**: model moves (e.g. field from catalog to assignment) require doc updates in the same pass as phase definitions.
-- **Respect AC hygiene**: never renumber or delete ACs per template; deprecate obsolete ones and exclude from traceability or mark DEPRECATED.
+- **Respect AC hygiene**: never renumber or delete ACs per **`acting-as-product-manager`** / **`using-spectr`**; deprecate obsolete ones and exclude from traceability or mark DEPRECATED.
 
 ## Pitfalls illustrated by past phasing work
 
-- **Stale architecture**: diagrams and ADRs still describing removed features or old aggregate boundaries while the business spec has moved on.
+- **Stale architecture**: diagrams and ADRs still describing removed features or old aggregate boundaries while the Spectr spec has moved on.
 - **Phase drift**: phase documents predating late spec rounds missing new ACs or still referencing removed ACs.
 - **Misplaced UCs**: configuration-heavy phase lists candidate landing UCs without the runtime to support them (or the reverse).
 - **Split AC confusion**: one AC ID meaning different things in different phases without a note (e.g. catalog vs UI behavior).
@@ -139,5 +139,5 @@ Optional: a **mermaid** phase chain diagram `P1 → P2 → …` when it clarifie
 
 ## Related artifacts
 
-- Product spec (template-aligned): [`skills/acting-as-product-manager/assets/spec.template.md`](../../../skills/acting-as-product-manager/assets/spec.template.md)
+- Product requirements: **`specs/{feature}/{feature}_spec.html`** — workflow in **`using-spectr`** and **`acting-as-product-manager`**
 - Architecture document, migration notes, and questions/decision logs should be cited from the repo when present.

@@ -28,6 +28,7 @@ class TestCanonicalSid(unittest.TestCase):
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_UC, "uc-a1b2c3d4"))
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_Q, "q-00000000"))
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_TEST, "tst-deadbeef"))
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_BR, "br-cafebabe"))
         self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "uc-short"))
         self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "wrong-a1b2c3d4"))
         self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, ""))
@@ -68,7 +69,15 @@ class TestSpecUnitOfWork(unittest.TestCase):
             path = Path(tmp) / "spec.html"
             spec_ops.write_minimal_spec(path, "T", "d")
             with SpecUnitOfWork.mutate(path) as root:
-                spec_ops.uc_add(root, "U", "u")
+                spec_ops.uc_add(
+                    root,
+                    "U",
+                    "u",
+                    trigger="t",
+                    actors=("a",),
+                    preconditions=("p",),
+                    postconditions=("o",),
+                )
             root2 = xmlio.load_tree(path)
             h1 = root2.find("body/h1")
             assert h1 is not None
@@ -81,7 +90,15 @@ class TestSpecUnitOfWork(unittest.TestCase):
             before = path.read_bytes()
             try:
                 with SpecUnitOfWork.mutate(path) as root:
-                    spec_ops.uc_add(root, "U", "u")
+                    spec_ops.uc_add(
+                    root,
+                    "U",
+                    "u",
+                    trigger="t",
+                    actors=("a",),
+                    preconditions=("p",),
+                    postconditions=("o",),
+                )
                     raise RuntimeError("abort")
             except RuntimeError:
                 pass

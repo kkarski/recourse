@@ -24,6 +24,66 @@ def get_text_content(element: etree._Element | None) -> str:
     return "".join(element.itertext())
 
 
+DEF_TERM_SPAN_TYPE = "term"
+
+
+def _definition_term_span(p: etree._Element) -> etree._Element | None:
+    for c in p:
+        if isinstance(c, etree._Element) and c.tag == "span" and c.get("type") == DEF_TERM_SPAN_TYPE:
+            return c
+    return None
+
+
+def definition_has_term_span(p: etree._Element) -> bool:
+    """True if *p* already contains a ``span[@type=term]`` child."""
+    return _definition_term_span(p) is not None
+
+
+def definition_clear_children(p: etree._Element) -> None:
+    """Remove all child elements from *p* and clear ``text``/``tail``."""
+    for child in list(p):
+        p.remove(child)
+    p.text = None
+
+
+def definition_set_term_and_body(p: etree._Element, term: str | None, body: str) -> None:
+    """Set glossary content: optional ``<span type="term">…</span>`` then definition body as following text."""
+    definition_clear_children(p)
+    t = (term or "").strip()
+    b = body if body is not None else ""
+    if t:
+        sp = etree.SubElement(p, "span", type=DEF_TERM_SPAN_TYPE)
+        sp.text = t
+        sp.tail = b
+    else:
+        p.text = b
+    p.attrib.pop("term", None)
+
+
+def definition_get_term(p: etree._Element) -> str:
+    """Term label from ``span[@type=term]``, else legacy ``term`` attribute."""
+    span = _definition_term_span(p)
+    if span is not None:
+        return (span.text or "").strip()
+    return (p.get("term") or "").strip()
+
+
+def definition_get_body(p: etree._Element) -> str:
+    """Definition body text (excluding the term span)."""
+    span = _definition_term_span(p)
+    if span is not None:
+        parts: list[str] = [span.tail or ""]
+        seen = False
+        for child in p:
+            if child is span:
+                seen = True
+                continue
+            if seen:
+                parts.append("".join(child.itertext()))
+        return "".join(parts).strip()
+    return get_text_content(p).strip()
+
+
 def load_tree(path: Path) -> etree._Element:
     p = Path(path)
     parser = etree.XMLParser(remove_blank_text=False)

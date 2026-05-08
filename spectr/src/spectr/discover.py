@@ -28,4 +28,18 @@ def find_file_upward(
 
 
 def find_spec_html_upward(start: Path | None = None) -> Path | None:
-    return find_file_upward(("spec.html",), start=start)
+    cur = (start or Path.cwd()).resolve()
+    while True:
+        canonical = cur / "spec.html"
+        if canonical.is_file():
+            return canonical
+        matches = sorted(
+            p for p in cur.glob("*_spec.html") if p.is_file()
+        )
+        if matches:
+            return matches[0]
+        parent = cur.parent
+        if parent == cur:
+            break
+        cur = parent
+    return None

@@ -71,10 +71,25 @@ class TestPlanPhaseTask(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertEqual(rows[0][0], ph0)
             self.assertEqual(len(rows[0][1]), 1)
-            self.assertTrue(rows[1][0].startswith("ph-"))
-            self.assertNotEqual(rows[1][0], ph0)
+            self.assertEqual(rows[1][0], "ph-no-such-phase")
             self.assertEqual(len(rows[1][1]), 1)
             self.assertIn("new phase", rows[1][1][0][1])
+
+    def test_task_add_auto_first_phase_custom_sids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "spec.html"
+            spec_ops.write_minimal_spec(path, "T", "d")
+            root = load_for_read(path)
+            tid = phase_ops.task_add_auto(
+                root,
+                "First",
+                user_task_sid="tsk-alpha",
+                user_phase_sid="ph-milestone-1",
+            )
+            self.assertEqual(tid, "tsk-alpha")
+            rows = phase_ops.plan_iter(root)
+            self.assertEqual(rows[0][0], "ph-milestone-1")
+            self.assertEqual(rows[0][1][0][0], "tsk-alpha")
 
     def test_task_add_auto_with_existing_phase_sid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -43,6 +43,34 @@ def ac_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     return None
 
 
+def br_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if el.tag == "p" and el.get("type") == "business-rule":
+        return el.get("sid")
+    return None
+
+
+def def_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if el.tag == "p" and el.get("type") == "definition":
+        return el.get("sid")
+    return None
+
+
+def ref_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    """Reference link ``sid`` from an ``<a>`` node's DOM fragment ``id`` (under ``ul type=references``)."""
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if el.tag == "a" and (el.get("href") or "").strip():
+        return (el.get("sid") or "").strip() or None
+    return None
+
+
 def test_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     el = find_by_dom_id(root, node_id)
     if el is None:
@@ -52,8 +80,26 @@ def test_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     return None
 
 
+def feedback_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if el.tag == "p" and el.get("type") == "feedback":
+        return el.get("sid")
+    return None
+
+
+def task_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if el.tag == "li" and el.get("type") == "task":
+        return el.get("sid")
+    return None
+
+
 def qs_target_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
-    """Resolve entity sid for ``qs ask`` targets: spec (body), use case, or acceptance criterion."""
+    """Resolve entity sid for ``qs ask`` targets: spec (body), use case, acceptance criterion, or business rule."""
     el = find_by_dom_id(root, node_id)
     if el is None:
         return None
@@ -62,6 +108,10 @@ def qs_target_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     if el.tag == "p" and el.get("type") == "desc":
         return _body(root).get("sid")
     if el.tag == "p" and el.get("type") == "acceptance-criteria":
+        return el.get("sid")
+    if el.tag == "p" and el.get("type") == "business-rule":
+        return el.get("sid")
+    if el.tag == "p" and el.get("type") == "definition":
         return el.get("sid")
     sid = _ancestor_use_case_sid(el)
     if sid:

@@ -17,18 +17,27 @@
       Root: html → head (title) → body (@sid).
 
       Entity @sid values are stable once assigned (Spectr does not rewrite existing sids on load).
-      New sids use a prefix (spec, uc, ac, tst, q, ph, tsk, fb) + hyphen + 8 lowercase hex digits
+      Optional ``deprecated`` on business-rule / acceptance-criterion paragraphs hides them from CLI lists unless ``--include-deprecated``.
+
+      New sids use a prefix (spec, uc, br, ac, tst, q, ph, tsk, fb) + hyphen + 8 lowercase hex digits
       (first UUID segment). Blank/missing @sid on known entities is filled when the spec is loaded.
 
-      Intended body div order (enforced on load, not by XSD alone):
-      use-case* → acceptance-criteria* → tests* → questions* → feedback* → plan*
+      Intended body block order (enforced on load, not by XSD alone):
+      ul[@type=references]? → div (definitions, use-case, …) …
 
-      use-case div (intended): h3, narrative p(s), optional nested acceptance-criteria and/or
-      questions divs. acceptance-criteria div (intended): p* (type=acceptance-criteria), optional
-      questions div at end.
+      Optional top-level ``ul`` (type=references): li → a[@href] (external links for the change set).
 
-      Allowed elements: html, head, title, body, h1, h3, p, div, ol, li, img, ul.
-      Inside p: optional text mixed with img, ul, or ol (plan-phase ol under div remains separate).
+      use-case div (intended): h3, narrative p(s), optional nested business-rules and/or
+      acceptance-criteria divs. business-rules / acceptance-criteria divs (intended):
+      p* (type=business-rule / type=acceptance-criteria).
+
+      Q&A is not part of ``spec.html``. Questions and answers are stored in a separate
+      companion document: ``{feature}_questions.html`` (questions.html), where
+      question content is allowed.
+
+      Allowed elements: html, head, title, body, h1, h3, p, div, ol, li, img, ul, a, span.
+      ``span`` in ``p type=definition`` is ``<span type="term">`` for the glossary label; a only under references ``ul``.
+      Inside other p: optional text mixed with img, ul, or ol (plan-phase ol under div remains separate).
     </xs:documentation>
   </xs:annotation>
 
@@ -55,10 +64,11 @@
   <xs:simpleType name="DivTypeEnum">
     <xs:restriction base="xs:string">
       <xs:enumeration value="use-case"/>
+      <xs:enumeration value="business-rules"/>
       <xs:enumeration value="acceptance-criteria"/>
       <xs:enumeration value="tests"/>
-      <xs:enumeration value="questions"/>
       <xs:enumeration value="feedback"/>
+      <xs:enumeration value="definitions"/>
       <xs:enumeration value="plan"/>
     </xs:restriction>
   </xs:simpleType>
@@ -66,9 +76,9 @@
   <xs:simpleType name="ParagraphKindEnum">
     <xs:restriction base="xs:string">
       <xs:enumeration value="desc"/>
+      <xs:enumeration value="definition"/>
+      <xs:enumeration value="business-rule"/>
       <xs:enumeration value="acceptance-criteria"/>
-      <xs:enumeration value="question"/>
-      <xs:enumeration value="answer"/>
       <xs:enumeration value="feedback"/>
       <xs:enumeration value="test"/>
     </xs:restriction>
@@ -83,6 +93,13 @@
   <xs:simpleType name="LiKindEnum">
     <xs:restriction base="xs:string">
       <xs:enumeration value="task"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="DocKindEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="spec"/>
+      <xs:enumeration value="questions"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -123,8 +140,14 @@
     </xs:sequence>
   </xs:complexType>
 
+  <xs:complexType name="TermSpanType" mixed="true">
+    <xs:sequence/>
+    <xs:attribute name="type" type="xs:string" use="required" fixed="term"/>
+  </xs:complexType>
+
   <xs:complexType name="PMixedContent" mixed="true">
     <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="span" type="TermSpanType"/>
       <xs:element name="img" type="ImgType"/>
       <xs:element name="ul" type="UlInlineType"/>
       <xs:element name="ol" type="OlInlineType"/>
@@ -150,6 +173,9 @@
         <xs:attribute name="sid" type="SpectrId" use="optional"/>
         <xs:attribute name="ref_id" type="SpectrId" use="optional"/>
         <xs:attribute name="ts" type="IsoDateTimeOrEmpty" use="optional"/>
+        <xs:attribute name="deprecated" type="xs:boolean" use="optional"/>
+        <xs:attribute name="section" type="xs:string" use="optional"/>
+        <xs:attribute name="term" type="xs:string" use="optional"/>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -167,6 +193,26 @@
     </xs:sequence>
     <xs:attribute name="type" type="OlKindEnum" use="required" fixed="phase"/>
     <xs:attribute name="sid" type="SpectrId" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="LinkAType" mixed="true">
+    <xs:sequence/>
+    <xs:attribute name="href" type="xs:anyURI" use="required"/>
+    <xs:attribute name="sid" type="SpectrId" use="optional"/>
+    <xs:attribute name="id" type="SpectrId" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ReferenceLiType">
+    <xs:sequence>
+      <xs:element name="a" type="LinkAType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="UlReferencesType">
+    <xs:sequence>
+      <xs:element name="li" type="ReferenceLiType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="type" type="xs:string" use="required" fixed="references"/>
   </xs:complexType>
 
   <xs:complexType name="SpectrDivType">
@@ -191,7 +237,10 @@
     <xs:sequence>
       <xs:element name="h1" type="H1Type"/>
       <xs:element name="p" type="PDescType"/>
-      <xs:element name="div" type="SpectrDivType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="div" type="SpectrDivType"/>
+        <xs:element name="ul" type="UlReferencesType"/>
+      </xs:choice>
     </xs:sequence>
     <xs:attribute name="sid" type="SpectrId" use="required"/>
   </xs:complexType>
@@ -201,6 +250,7 @@
       <xs:element name="head" type="HeadType"/>
       <xs:element name="body" type="BodyType"/>
     </xs:sequence>
+    <xs:attribute name="doc-kind" type="DocKindEnum" use="optional" default="spec"/>
   </xs:complexType>
 
   <xs:element name="html" type="HtmlType"/>

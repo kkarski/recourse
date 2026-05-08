@@ -40,13 +40,13 @@ You design how information is organized and navigated. **Structure reflects user
 
 ```
 Read specs/ia_overview.md
-Read specs/{feature}/{feature}_business_spec.md
+Read `specs/{feature}/{feature}_spec.html` (Spectr; use **`spectr export markdown`** per **`using-spectr`** for readable content)
 Read specs/{feature}/questions.md
 ```
 
 **Required reading:**
 - `ia_overview.md` - Existing IA patterns and conventions
-- `{feature}_business_spec.md` - PM's business specification (user goals, personas, success criteria)
+- `{feature}_spec.html` — PM's Spectr specification (user goals, personas, success criteria); path `specs/{feature}/{feature}_spec.html`
 - `questions.md` - Questions from other roles
 
 The business spec provides critical context:
@@ -236,7 +236,7 @@ Best balance of user mental model (categories) with discoverability (brand filte
 ## Pre-Submission Checklist
 
 - [ ] Read `ia_overview.md` for existing patterns
-- [ ] **Read `{feature}_business_spec.md`** for user goals and personas
+- [ ] **Read `specs/{feature}/{feature}_spec.html`** (exported Markdown per **`using-spectr`**) for user goals and personas
 - [ ] **Checked `questions.md` for questions directed to you** (see `references/how_to_use_questions.md`)
 - [ ] **Answered all questions in `questions.md`** (with rationale - see `references/how_to_use_questions.md`)
 - [ ] Navigation max 3 levels deep
@@ -254,7 +254,7 @@ Best balance of user mental model (categories) with discoverability (brand filte
 
 | Mistake | Example | Fix |
 |---------|---------|-----|
-| Skipping business spec | Designing without reading PM's spec | Read `{feature}_business_spec.md` first |
+| Skipping PM spec | Designing without reading the Spectr spec | Read `specs/{feature}/{feature}_spec.html` (via export) first |
 | Blocking on questions | "I need PM to clarify..." | Proceed with documented assumptions |
 | No assumptions section | Delivering without flagging unknowns | Always include assumptions table |
 | Deferring stakeholder conflicts | "Which approach should I use?" | Synthesize and recommend |
@@ -271,7 +271,7 @@ Best balance of user mental model (categories) with discoverability (brand filte
 ### With PM
 
 **Input from PM** (read before designing):
-- `{feature}_business_spec.md` - User personas, goals, success criteria
+- `{feature}_spec.html` at `specs/{feature}/` — user personas, goals, success criteria
 
 **Answering PM's questions and asking PM questions**: See `references/how_to_use_questions.md` for detailed instructions on formatting and recording Q&A in questions.md.
 

@@ -20,7 +20,15 @@ class TestUowSession(unittest.TestCase):
             self.assertTrue(draft.is_file())
             self.assertNotEqual(draft.resolve(), spec.resolve())
             with SpecUnitOfWork.mutate(draft) as root:
-                spec_ops.uc_add(root, "U", "u")
+                spec_ops.uc_add(
+                    root,
+                    "U",
+                    "u",
+                    trigger="t",
+                    actors=("a",),
+                    preconditions=("p",),
+                    postconditions=("o",),
+                )
             root_check = xmlio.load_tree(spec)
             body = root_check.find("body")
             assert body is not None
@@ -46,7 +54,15 @@ class TestUowSession(unittest.TestCase):
             uow_session.begin(spec)
             draft = uow_session.resolve_working_spec_path(spec)
             with SpecUnitOfWork.mutate(draft) as root:
-                spec_ops.uc_add(root, "U", "u")
+                spec_ops.uc_add(
+                    root,
+                    "U",
+                    "u",
+                    trigger="t",
+                    actors=("a",),
+                    preconditions=("p",),
+                    postconditions=("o",),
+                )
             uow_session.abort(spec)
             self.assertFalse(uow_session.is_active(spec))
             root = xmlio.load_tree(spec)

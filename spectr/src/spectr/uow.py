@@ -16,7 +16,7 @@ from typing import Iterator
 
 from lxml import etree
 
-from spectr import ids, struct_validate, xmlio
+from spectr import ids, spec_ops, struct_validate, xmlio
 
 HTML_ROOT = "html"
 
@@ -31,6 +31,8 @@ def _element_needs_dom_id(el: etree._Element) -> bool:
     if tag in ("h1", "h3"):
         return True
     if tag == "p":
+        return True
+    if tag == "a":
         return True
     if tag == "li" and el.get("type") == "task":
         return True
@@ -48,6 +50,9 @@ def _strip_spurious_id(el: etree._Element) -> bool:
         el.attrib.pop("id", None)
         return True
     if tag == "img":
+        el.attrib.pop("id", None)
+        return True
+    if tag == "span":
         el.attrib.pop("id", None)
         return True
     return False
@@ -96,6 +101,14 @@ def ensure_missing_entity_sids(root: etree._Element) -> bool:
         changed = True
 
     for el in root.iter("p"):
+        if el.get("type") == "definition":
+            fill_if_missing(el, ids.PREFIX_DEF)
+
+    for el in root.iter("p"):
+        if el.get("type") == "business-rule":
+            fill_if_missing(el, ids.PREFIX_BR)
+
+    for el in root.iter("p"):
         if el.get("type") == "acceptance-criteria":
             fill_if_missing(el, ids.PREFIX_AC)
 
@@ -106,6 +119,11 @@ def ensure_missing_entity_sids(root: etree._Element) -> bool:
     for el in root.iter("div"):
         if el.get("type") == "use-case":
             fill_if_missing(el, ids.PREFIX_UC)
+
+    for ch in body:
+        if ch.tag == "ul" and ch.get("type") == "references":
+            for a in ch.iter("a"):
+                fill_if_missing(a, ids.PREFIX_REF)
 
     fill_if_missing(body, ids.PREFIX_SPEC)
 
@@ -182,10 +200,14 @@ def load_for_read(path: Path | str) -> etree._Element:
     """
     p = Path(path)
     root = xmlio.load_tree(p)
+    changed = spec_ops.migrate_legacy_references_div(root)
+    if spec_ops.migrate_definition_term_attr_to_span(root):
+        changed = True
     struct_validate.assert_valid_spec(root)
     if root.tag != HTML_ROOT:
         raise ValueError(f"expected <{HTML_ROOT}> root, got <{root.tag}> in {p}")
-    changed = ensure_missing_entity_sids(root)
+    if ensure_missing_entity_sids(root):
+        changed = True
     if recompute_dom_ids(root):
         changed = True
     if changed:
@@ -209,6 +231,11 @@ class SpecUnitOfWork:
         if self._locked:
             raise RuntimeError("spec unit of work is already locked")
         root = xmlio.load_tree(self.path)
+        w = spec_ops.migrate_legacy_references_div(root) or spec_ops.migrate_definition_term_attr_to_span(
+            root
+        )
+        if w:
+            xmlio.write_tree(self.path, root)
         struct_validate.assert_valid_spec(root)
         if root.tag != HTML_ROOT:
             raise ValueError(f"expected <{HTML_ROOT}> root, got <{root.tag}> in {self.path}")

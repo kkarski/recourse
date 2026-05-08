@@ -1,121 +1,120 @@
-## **How to use Rules**
+# Rules vs acceptance criteria
 
-* Write as **clear, general logic** that applies across the system
-* Use structured patterns like **“If X, then Y (unless Z)”**
-* Keep each rule **atomic** (one idea per rule)
-* **Define key terms and thresholds** explicitly
-* Focus on **what must be true**, not implementation details
-* Make rules **reusable** across multiple features
-* Ensure they are **unambiguous and testable in principle**
-* **Assign each rule a stable, unique ID** (see "Rule Identification & Management" below)
+**How to phrase business rules** (RuleSpeak, glossary alignment, `br` vs **Definitions**) lives in **[rule-speak-best-practices.md](rule-speak-best-practices.md)**. This page contrasts **rules** and **acceptance criteria**, how to **identify and cite** them, and how to **use** them together—without repeating the RuleSpeak guide.
 
 ---
 
-## **Rule Identification & Management**
+## How they differ
 
-Every business rule must have a stable, unique identifier so that acceptance criteria, tests, code comments, change requests, and architect/engineer questions can reference it unambiguously. The same management discipline applied to acceptance criteria (`AC N`) applies to business rules (`BR N`).
+| | **Business rules** | **Acceptance criteria** |
+|---|--------------------|-------------------------|
+| **What they are** | Durable **policies and invariants** for the domain or product | **Testable conditions** for a **specific** change (feature, story, task, slice of work) |
+| **Scope** | Broad, **cross-cutting**; reused wherever the policy applies | **Narrow**, tied to one delivery item |
+| **Purpose** | Define **logic, constraints, permissions, calculations** at the vocabulary level | **Verify** that the change behaves as intended and **honors** cited rules |
+| **Lifecycle** | **Stable** and long-lived unless policy changes | Change as the **feature or verification needs** change |
+| **Perspective** | Abstract policy—not implementation detail | **Concrete** behavior and **observable** outcomes |
+| **Shape** | Natural-language rules per **rule-speak-best-practices.md** | Scenarios (e.g. **Given / When / Then**) or equivalent checks |
 
-### **ID format**
+---
 
-* Use the prefix **`BR`** (Business Rule) followed by a space and a positive integer, e.g. `BR 1`, `BR 2`, `BR 17`.
-* IDs are **per-spec**: numbering restarts at `BR 1` in each `{feature}_business_spec.md`. Cross-spec references must qualify the ID with the spec name (e.g. `Document Parsing / BR 4`).
-* Each rule is a single atomic statement. Compound rules ("If A and B, then C; unless D, then E") must be split into multiple `BR` entries, each with its own ID.
+## When to use each
 
-### **Authoring format**
+**Write or change a business rule when** you are stating **policy**, **business logic**, or **invariants** that should stay **one wording** for many features; when you need **consistency** across the system; or when you are clarifying **constraints, permissions, or calculations** at the domain level.
+
+**Write or change acceptance criteria when** you are delivering a **specific feature or story**; when you need to **align developers and testers** on “done”; when you want **testable** scenarios (including **QA** planning); or when you must **validate completeness** of that slice—not restate every policy from scratch.
+
+---
+
+## Using acceptance criteria well
+
+* Tie each criterion to a **concrete** feature, story, or task.
+* Cover **happy paths, edge cases, and failure cases** as appropriate.
+* Make outcomes **observable and specific** (what the user or system shows or does—use the perspective the spec agrees on).
+* **Cite** the **`BR`** (or Spectr **`br`** **`sid`**) that the scenario exercises instead of copying full rule text.
+* Treat them as **definition of done** for that work, while the **rules** remain the **authoritative** policy text.
+
+---
+
+## Using rules together with ACs
+
+1. **Rules carry policy; ACs carry scenarios.** If **policy** changes, update the **rule** (and glossary if needed). If only **how you prove** the feature changes, update **ACs** and tests.
+
+2. **One main idea per rule.** ACs may bundle **many** checks for one story (edges, failures); each check can still **reference** the same **`BR`**s.
+
+3. **Traceability:** acceptance criteria (and tests, tasks, comments) should **point at rule IDs** so rule → verification stays explicit.
+
+---
+
+## Rule and AC identification
+
+Stable identifiers matter because ACs, tests, plans, Q&A, and audits **reference** rules and criteria by id—renumbering or silent deletion breaks those links.
+
+### Format
+
+* **Business rules:** **`BR`** + space + positive integer (`BR 1`, `BR 17`). **Per spec**, numbering starts at **`BR 1`**. Referencing a rule in **another** spec: qualify it (e.g. `Document Parsing / BR 4`).
+* **Acceptance criteria:** same discipline with **`AC`** + integer, **per spec**.
+* **Spectr:** `br` and `ac` rows use stable **`sid`** values—treat them like immutable handles when citing from prose.
+
+### One rule, one statement
+
+Each **`BR`** is a **single atomic** statement. Split compound logic into **multiple** **`BR`** rows, each with its own id.
+
+### Authoring pattern (markdown specs)
 
 ```markdown
-- **BR 1**: [Atomic rule, e.g. "If a Document file size exceeds 50 MB, the system must reject the upload."]
-- **BR 2**: [Atomic rule]
-- **BR 3**: [Atomic rule]
+- **BR 1**: [atomic rule—wording per rule-speak-best-practices.md]
+- **BR 2 — Short name**: [atomic rule]
 ```
 
-When a rule has a name in addition to an ID, place the name after the ID:
+### Stability
 
-```markdown
-- **BR 4 — File-size limit**: If a Document file size exceeds 50 MB, the system must reject the upload.
-```
+* **Never re-number** an existing **`BR`** or **`AC`**. New rules use the **next unused** integer (e.g. after **`BR 12`**, add **`BR 13`**, even if **`BR 5`** is deprecated).
+* **Do not delete** published rules or criteria if anything might reference them; **deprecate** instead. Examples:
 
-### **Stability requirements**
+  `- **~~BR 5~~** *(DEPRECATED YYYY-MM-DD — reason)*: [original text]`
 
-These mirror the acceptance-criteria management rules:
+  or keep the line and add `**Status**: Deprecated (reason, date)` below.
 
-* **Never re-number a business rule once created.** Once `BR 7` exists, that ID is permanent. Adding, removing, or reordering other rules must not shift `BR 7`.
-* **Never delete a business rule once created.** If a rule is no longer needed, mark it deprecated rather than removing it. Use one of:
-  * `- **~~BR 5~~** *(DEPRECATED YYYY-MM-DD — reason)*: [original rule text]`
-  * Or keep the entry and add a `**Status**: Deprecated (reason, date)` line beneath it.
-* **New rules take the next unused number.** If the highest existing rule is `BR 12`, the next new rule is `BR 13`, even if `BR 5` is deprecated.
-* **Acceptance criteria reference rules by ID.** Each `AC N` should cite the `BR N`s it verifies (e.g. "Verifies BR 3, BR 7"). This makes the rule→AC traceability explicit and machine-checkable.
-
-### **Why this matters**
-
-Stable IDs let downstream artifacts (acceptance criteria, test cases, plan tasks, architect Q&A, code comments, audit trails) point at a rule without re-quoting it. Renumbering or deleting rules silently breaks every one of those references.
+  In Spectr, prefer **`br update --deprecated`** / AC deprecation patterns over deleting rows when traceability matters.
 
 ---
 
-## **How to use Acceptance Criteria**
+## Quick mental model
 
-* Tie them to a **specific feature, story, or task**
-* Write as **testable scenarios** (e.g., “Given / When / Then”)
-* Include **happy paths, edge cases, and failure cases**
-* Make outcomes **observable and specific** (what the user/system sees or does)
-* Reflect how the feature behaves from a **user or system perspective**
-* Ensure they collectively **demonstrate the rules are enforced**
-* Use them as a **definition of done** for the work
+* **Rules** = the **law** (one durable statement of policy).
+* **Acceptance criteria** = the **checklist** that shows the law is **followed** for **this** delivery—by **scenario**, not by duplicating the law each time.
 
 ---
 
-## **How they are different**
+## Placement: use case vs global
 
-* **Scope**
+A spec stores **definitions** once, then **use cases** (journeys), then optional **global** **business-rules** and **acceptance-criteria** sections for the whole change set. **Every BR and AC has exactly one home**—either a single owning use case or the global section. Cross-references use prose (**`Verifies BR N`**, **`see change-set AC N`**); the row text itself appears **once**.
 
-  * Rules → broad, system-wide
-  * Acceptance criteria → narrow, feature-specific
+> The persistence mechanics (CLI, **`sid`**, batching, deprecation) for moving or relocating rows live only in **`using-spectr`**. This page covers **where** rows belong, not **how** to edit the file.
 
-* **Purpose**
+### Where each row goes
 
-  * Rules → define logic and constraints
-  * Acceptance criteria → verify a feature works
+| Placement | Put here | Examples (non-exhaustive) |
+|-----------|----------|---------------------------|
+| **Under one use case** | BRs/ACs whose **primary** story is that journey: one actor, trigger, and success path | "When the ops user assigns providers…", "When the candidate lands…", card/analytics scenarios scoped to that UC |
+| **Global (after all use cases)** | BRs/ACs that are **cross-cutting** or **not owned by a single journey** | Identifier/uniqueness policies reused everywhere; scope pointers ("defined in another spec"); **accepted risk** or platform-wide invariants; one-time **migration / backfill**; ACs that **verify** BRs referenced from **multiple** flows |
 
-* **Lifespan**
+### Heuristics
 
-  * Rules → stable and long-lived
-  * Acceptance criteria → change per feature or task
+1. **One canonical home.** If the team can name **one** UC that "this is the main home for" the rule or AC, **nest** it there. If two UCs both feel primary, **decide a single canonical home** (or move to **global**) and use **`Verifies BR N`** / **`Related ACs`** in prose for cross-references—**do not** duplicate the same rule or AC text in two places.
 
-* **Perspective**
+2. **Cross-reference, don't duplicate.** When a globally placed BR is exercised by ACs in multiple use cases, each AC cites **`BR N`** (or **`sid`**); the BR text itself appears exactly once, in the global section.
 
-  * Rules → abstract/system logic
-  * Acceptance criteria → concrete behavior and outcomes
+3. **Related ACs hygiene.** **`Related ACs`** (and **`Related BRs`** if you use that pattern) inside a use case narrative must match reality: list only ACs/BRs that **live** under that UC, **or** explicitly point readers to a global row (e.g. "see change-set AC 12") so the spec is not misleading.
 
-* **Format**
+4. **Reorganization is a content decision.** Choosing where a BR or AC lives—and moving it after scope changes—is a **product** decision driven by ownership and audience. **How** to edit the file (stable IDs, add/delete, deprecation, batching) is **`using-spectr`** only.
 
-  * Rules → “If / then / unless”
-  * Acceptance criteria → “Given / When / Then”
+### Anti-patterns
 
----
-
-## **When to use each**
-
-**Use Rules when:**
-
-* You’re defining **business logic or policies**
-* You need **consistency across multiple features**
-* You’re clarifying **constraints, permissions, or calculations**
-* You want a **single source of truth** for how something works
-
-**Use Acceptance Criteria when:**
-
-* You’re building or refining a **specific feature or user story**
-* You need to **communicate expectations to developers/testers**
-* You want to **validate that a feature is complete and correct**
-* You’re writing **tests or planning QA checks**
-
----
-
-## **Quick mental model**
-
-* Rules = **the law**
-* Acceptance criteria = **the checklist that proves the law is followed**
-
----
-
-If you want to go a level deeper, I can show how poor requirements usually mix these up—and how separating them makes everything clearer fast.
+| Anti-pattern | Symptom | Fix |
+|---|---|---|
+| Duplicated rule text | Identical BR text appears under two use cases (or under a UC and globally) | Pick one canonical home; cite by **`BR N`** from the other location |
+| `Related ACs` lies | UC narrative says "Related ACs: AC5–AC10" but those ACs only exist in the global section | Update the narrative to cite global ACs explicitly, or move the ACs to match the stated ownership |
+| Cross-cutting BR nested under one UC | An identifier/uniqueness invariant filed under "landing" UC but cited from analytics, campaign config, etc. | Move the BR to the **global** section; update **`Verifies BR N`** in dependent ACs |
+| Global section as dumping ground | BRs that have one obvious owning UC parked globally to "stay flexible" | Nest under that UC; reserve **global** for genuinely cross-cutting rules |
+| Ambiguous home, no decision | Same rule cited from multiple places, no canonical placement chosen | Decide explicitly (UC or global), document the choice in the row, then update all citations |

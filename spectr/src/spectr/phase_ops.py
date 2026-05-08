@@ -3,7 +3,7 @@ from __future__ import annotations
 from lxml import etree
 
 from spectr import ids
-from spectr.spec_ops import _body, _ensure_body_block_div
+from spectr.spec_ops import _body, _ensure_body_block_div, prune_empty_section_containers_upward
 from spectr.xmlio import get_text_content, set_text_content
 
 
@@ -27,12 +27,16 @@ def _resolve_phase_ol(plan: etree._Element, phase_sid: str | None) -> etree._Ele
     raise ValueError("no plan phase; run spectr task add (optional --ph) to create one")
 
 
-def phase_add(root: etree._Element) -> str:
-    """Append a phase list with an auto ``ph-{uuid8}`` sid (never caller-assigned)."""
+def phase_add(root: etree._Element, *, user_sid: str | None = None) -> str:
+    """Append a phase list with a ``ph-…`` sid (auto-allocated or ``user_sid`` on add)."""
     body_el = _body(root)
     plan = _plan_div(body_el)
     existing = ids.collect_xml_ids(root)
-    sid = ids.new_prefixed_id(ids.PREFIX_PHASE, existing)
+    if user_sid is not None:
+        sid = ids.require_unique_override_sid(user_sid, ids.collect_sids(root))
+    else:
+        sid = ids.new_prefixed_id(ids.PREFIX_PHASE, existing)
+    existing.add(sid)
     ol = etree.Element("ol", type="phase", sid=sid)
     plan.append(ol)
     return sid
@@ -91,12 +95,17 @@ def task_add(
     text: str,
     *,
     phase_sid: str | None = None,
+    user_task_sid: str | None = None,
 ) -> str:
     body_el = _body(root)
     plan = _plan_div(body_el)
     ol = _resolve_phase_ol(plan, phase_sid)
     existing = ids.collect_xml_ids(root)
-    task_sid = ids.new_prefixed_id(ids.PREFIX_TASK, existing)
+    if user_task_sid is not None:
+        task_sid = ids.require_unique_override_sid(user_task_sid, ids.collect_sids(root))
+    else:
+        task_sid = ids.new_prefixed_id(ids.PREFIX_TASK, existing)
+    existing.add(task_sid)
     tmp_id = f"w-{ids.uuid_first_segment()}"
     li = etree.SubElement(ol, "li", type="task", id=tmp_id, sid=task_sid)
     set_text_content(li, text)
@@ -108,11 +117,15 @@ def task_add_auto(
     text: str,
     *,
     phase_sid: str | None = None,
+    user_task_sid: str | None = None,
+    user_phase_sid: str | None = None,
 ) -> str:
     """Ensure ``div type=plan`` and a target ``ol type=phase`` exist, then append a task (CLI default).
 
-    * With ``phase_sid``: if a phase with that ``sid`` exists, append there; otherwise create a new phase (auto ``ph-…`` sid) and append there.
-    * Without ``phase_sid``: if there are no phases yet, create one with an auto ``ph-…`` sid; else append to the last phase.
+    * With ``phase_sid``: if a phase with that ``sid`` exists, append there; otherwise create a new
+      phase with that same ``sid`` and append there.
+    * Without ``phase_sid``: if there are no phases yet, create one (``user_phase_sid`` or auto
+      ``ph-…``) and append; else append to the last phase.
     """
     body_el = _body(root)
     plan = _plan_div(body_el)
@@ -122,12 +135,30 @@ def task_add_auto(
     if want:
         for p in phases:
             if p.get("sid") == want:
-                return task_add(root, text, phase_sid=want)
-        ph = phase_add(root)
-        return task_add(root, text, phase_sid=ph)
+                return task_add(
+                    root, text, phase_sid=want, user_task_sid=user_task_sid
+                )
+        phase_add(root, user_sid=want)
+        return task_add(root, text, phase_sid=want, user_task_sid=user_task_sid)
 
     if not phases:
-        ph = phase_add(root)
-        return task_add(root, text, phase_sid=ph)
+        ph = phase_add(root, user_sid=user_phase_sid)
+        return task_add(root, text, phase_sid=ph, user_task_sid=user_task_sid)
 
-    return task_add(root, text, phase_sid=None)
+    return task_add(root, text, phase_sid=None, user_task_sid=user_task_sid)
+
+
+def task_delete(root: etree._Element, task_sid: str) -> bool:
+    want = str(task_sid).strip()
+    for li in root.iter("li"):
+        if (li.get("type") or "").strip() != "task":
+            continue
+        if (li.get("sid") or "").strip() != want:
+            continue
+        parent = li.getparent()
+        if parent is None:
+            return False
+        parent.remove(li)
+        prune_empty_section_containers_upward(root, parent)
+        return True
+    return False

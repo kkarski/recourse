@@ -1,0 +1,50 @@
+/* Wrapper chrome for `spectr serve` (parent page around the spec iframe). */
+
+html,
+body.spectr-chrome {
+  height: 100%;
+  margin: 0;
+}
+
+body.spectr-chrome {
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell,
+    "Noto Sans", sans-serif;
+  color-scheme: light dark;
+}
+
+.spectr-chrome-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 15%, transparent);
+  background: color-mix(in srgb, Canvas 97%, CanvasText 3%);
+  font-size: 0.9rem;
+}
+
+.spectr-chrome-brand {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.spectr-chrome-label {
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spectr-chrome-main {
+  flex: 1;
+  min-height: 0;
+}
+
+iframe.spectr-spec-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}

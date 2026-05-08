@@ -54,7 +54,7 @@ Before writing any test code, conduct a systematic discovery phase to understand
 
 Do not guess requirements or reverse-engineer them from implementation. Read:
 
-1. **Business spec** (`*_business_spec.md`) — acceptance criteria, business rules, validation rules, use cases.
+1. **Spectr spec** (`specs/{feature}/{feature}_spec.html`) — acceptance criteria, business rules, validation rules, use cases (read via **`spectr export`** per **`using-spectr`**).
 2. **Architecture doc** (`*_architecture.md`) — data schemas, table names, storage backends, field definitions, state machines, retry logic.
 3. **Schemas/Models** (`schemas.py`, `models.py`) — exact structure, types, and nullability of every field.
 4. **questions.md** — the decision log and prior Q&A. Do not re-ask already-answered questions.

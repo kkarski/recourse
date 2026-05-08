@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import sys
 from contextlib import contextmanager
+from itertools import zip_longest
 from pathlib import Path
 
 # Allow `./cli.py` from a dev tree without installing: package lives in ../.. from this file.
@@ -16,12 +17,14 @@ if _src.name == "src" and str(_src) not in sys.path:
     sys.path.insert(0, str(_src))
 
 import click
+from click.core import ParameterSource
 
 from spectr import __version__
 from spectr import dom_resolve
 from spectr import ids
 from spectr import phase_ops
 from spectr import spec_ops
+from spectr import xmlio
 from spectr.discover import find_spec_html_upward
 from spectr.naming import DEFAULT_INIT_TITLE, spec_folder_name_from_title
 from spectr.user_config import resolve_role
@@ -35,8 +38,9 @@ from spectr.refs import (
 
 
 def _default_spec_parent_dir() -> Path:
-    """./<title_with_spaces_as_underscores>/ (matches default init title)."""
-    return Path(spec_folder_name_from_title(DEFAULT_INIT_TITLE))
+    """Feature directory inferred from cwd name (spaces normalized to underscores)."""
+    feature_dir = spec_folder_name_from_title(Path.cwd().name or DEFAULT_INIT_TITLE)
+    return Path(feature_dir)
 
 
 def _default_spec() -> Path:
@@ -46,7 +50,17 @@ def _default_spec() -> Path:
     found = find_spec_html_upward()
     if found is not None:
         return found
-    return _default_spec_parent_dir() / "spec.html"
+    feature = _default_spec_parent_dir().name
+    return Path.cwd() / f"{feature}_spec.html"
+
+
+def _cli_explicit(ctx: click.Context, param_name: str) -> bool:
+    """True if the user set this option on the CLI (omit-on-update means clear)."""
+    try:
+        src = ctx.get_parameter_source(param_name)  # type: ignore[union-attr]
+    except (ValueError, AttributeError):
+        return False
+    return src not in (ParameterSource.DEFAULT, ParameterSource.DEFAULT_MAP)
 
 
 def _emit(porcelain: bool, kind: str, entity_id: str) -> None:
@@ -84,8 +98,37 @@ _MARKDOWN_TEXT_HELP = (
     "like <, >, and & are escaped on write and restored when you read or export."
 )
 
-_SID_HELP = "Stable entity sid (e.g. uc-…, ac-…)."
+_SID_HELP = "Stable entity sid (any unique string; auto-allocated sids look like uc-xxxxxxxx)."
 _DOM_ID_HELP = "DOM fragment id attribute (normalized digits: 1, 2, …), not the entity sid."
+_WITH_SID_ADD_HELP = (
+    "Optional entity sid: any non-empty string that does not duplicate another entity sid in the spec. "
+    "Omit to auto-allocate (type prefix + 8 lowercase hex digits). "
+    "Repeat once per --desc when adding several rows."
+)
+_QS_THREAD_WITH_SID_HELP = (
+    "Optional Q&A thread sid: any unique string. "
+    "Omit to auto-allocate (q- + 8 hex digits). Follow-up answers share this thread sid."
+)
+_INIT_SPEC_WITH_SID_HELP = (
+    "Optional body (change-set) sid: any unique string. "
+    "Omit to auto-allocate (spec- + 8 lowercase hex digits)."
+)
+_REF_WITH_SID_HELP = (
+    "Optional reference-link sid: any unique string. "
+    "Omit to auto-allocate (ref- + 8 lowercase hex digits)."
+)
+_TEST_WITH_SID_HELP = (
+    "Optional test sid: any unique string. "
+    "Omit to auto-allocate (tst- + 8 hex digits)."
+)
+_TASK_WITH_SID_HELP = (
+    "Optional task sid: any unique string. "
+    "Omit to auto-allocate (tsk- + 8 hex digits)."
+)
+_TASK_PHASE_WITH_SID_HELP = (
+    "When the plan has no phases yet, use this ph-… sid for the first phase. "
+    "Ignored if phases already exist or when --ph is set."
+)
 
 
 def _sid_or_dom_id(
@@ -134,6 +177,24 @@ def _work(obj: dict) -> Path:
     return uow_session.resolve_working_spec_path(Path(obj["spec_path"]))
 
 
+def _questions_file_path(spec_path: Path) -> Path:
+    """Companion questions document path: ``{feature}_questions.html`` next to the spec."""
+    feature = spec_folder_name_from_title(spec_path.parent.name or DEFAULT_INIT_TITLE)
+    return spec_path.parent / f"{feature}_questions.html"
+
+
+def _questions_work(obj: dict) -> Path:
+    """Q&A file path; lazily initialized as a copy of current working spec."""
+    spec_work = _work(obj)
+    qpath = _questions_file_path(Path(obj["spec_path"]))
+    if not qpath.exists():
+        qpath.parent.mkdir(parents=True, exist_ok=True)
+        qroot = xmlio.load_tree(spec_work)
+        qroot.set("doc-kind", "questions")
+        xmlio.write_tree(qpath, qroot)
+    return qpath
+
+
 @click.group(invoke_without_command=True)
 @click.version_option(__version__, "--version", prog_name="spectr")
 @click.option(
@@ -159,14 +220,17 @@ def _work(obj: dict) -> Path:
 )
 @click.pass_context
 def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
-    """Manage Spectr HTML specifications for software change sets.
+    """Spectr is a structured HTML specification for a software change set; this command loads ``spec.html`` (via ``--spec``) and runs subcommands that edit or export requirements entities.
 
     The specification is a single HTML document (see ``specs/spectr.xsd``): ``body``
-    carries the spec ``sid``; use cases, acceptance criteria, tests, Q&A, feedback,
+    carries the spec ``sid``; use cases, business rules, acceptance criteria, tests, Q&A, feedback,
     and delivery plan live in typed ``div`` / ``p`` / ``ol`` / ``li`` elements. Entity
-    ids are stored on ``sid`` (and unique ``id`` on each element). New ``sid`` values use
-    ``prefix`` + hyphen + UUID segment (see ``spectr.ids``); assigned sids stay stable—only
-    missing sids are filled on load (``spectr.uow.ensure_missing_entity_sids``).
+    ids are stored on ``sid`` (and unique ``id`` on each element). Auto-allocated ``sid`` values use
+    ``prefix`` + hyphen + UUID segment (see ``spectr.ids``); user ``--with-sid`` values need only
+    be unique among other entity sids. Assigned sids stay stable—only
+    missing sids are filled on load (``spectr.uow.ensure_missing_entity_sids``). Updates do not
+    change entity ``sid`` (set at ``add`` or via optional ``--with-sid`` on feature add, uc/ac/br/test,
+    task, and ``qs ask``; ``task add`` also supports ``--phase-with-sid`` for the first phase).
 
     Markdown in text fields
 
@@ -183,7 +247,8 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
 
       ``spectr --help`` · ``spectr --spec ./My_Feature/spec.html uc list``
 
-      Change-set blurb: ``spectr spec read`` · ``spectr spec update -d '…'``.
+      Change-set blurb and links: ``spectr spec read`` · ``spectr spec update -d '…'`` ·
+      ``spectr spec ref add -u URL -l '…'``.
 
       Discovery walks upward for ``spec.html`` unless ``--spec`` or ``SPECTR_SPEC`` is set.
       Delivery plan: ``spectr task add -d '…'`` · ``spectr task list`` (optional ``--ph PHASE_SID``). Plan/phase markup is created when missing.
@@ -193,7 +258,7 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
       Each mutating subcommand runs one short transaction: clone → edit → renumber ``id`` → write.
 
       **Session (several commands, one write to ``spec.html``):** run ``spectr uow begin`` (for the
-      same ``--spec``), then any mix of uc/ac/test/task/qs/feedback commands; they edit a draft
+      same ``--spec``), then any mix of uc/ac/def/test/task/qs/feedback commands; they edit a draft
       under ``<spec-dir>/.spectr/``. Run ``spectr uow commit`` to merge the draft into the real
       spec (with id renumbering) and clear the session, or ``spectr uow abort`` to discard the
       draft. ``spectr uow status`` shows whether a session is active.
@@ -206,7 +271,7 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
       Porcelain (``-p``): one line ``kind`` + tab + entity ``sid``. Use the same ``--spec``
       on both sides of a pipe when needed.
 
-      ``spectr uc add -t T -d D -p | spectr ac add -d TEXT --uc -``
+      ``spectr uc add -t T -d D --trigger TR --actor A --precond P --postcond O -p | spectr ac add -d TEXT --uc -``
 
       ``(echo uc-xxxx; echo 'Q text') | spectr qs ask --pipe-id``
 
@@ -230,7 +295,9 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def conf(ctx: click.Context) -> None:
-    """Configure default author role for Q&A and feedback (pm, architect, engineer, qa; ~/.spectr/config)."""
+    """Author-role defaults are persisted preferences (who speaks when ``--author`` is omitted on ``qs`` / ``feedback``).
+
+    Configure default author role for Q&A and feedback (pm, architect, engineer, qa; ~/.spectr/config)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -275,10 +342,18 @@ def conf_show(config: Path) -> None:
     click.echo(config.read_text(encoding="utf-8"), nl=False)
 
 
-# --- init ---
+# --- feature ---
 
 
-@cli.command("init")
+@cli.group("feature", invoke_without_command=True)
+@click.pass_context
+def feature_cmd(ctx: click.Context) -> None:
+    """Feature workspace commands (directory + spec/questions companion docs)."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@feature_cmd.command("add")
 @click.argument("title")
 @click.argument(
     "target",
@@ -293,27 +368,42 @@ def conf_show(config: Path) -> None:
     show_default=True,
     help=_MARKDOWN_TEXT_HELP,
 )
-@click.pass_context
-def init_cmd(
-    ctx: click.Context,
-    title: str,
-    target: Path | None,
-    desc: str,
+@click.option(
+    "--with-sid",
+    "user_spec_sid",
+    default=None,
+    help=_INIT_SPEC_WITH_SID_HELP,
+)
+def feature_add_cmd(
+    title: str, target: Path | None, desc: str, user_spec_sid: str | None
 ) -> None:
-    """Create ``spec.html``; TITLE is written to ``<title>`` and ``<h1>`` (quote if it contains spaces).
-
-    If TARGET is omitted, the directory name is derived from TITLE (spaces → underscores).
-    """
-    title = (title or "").strip() or DEFAULT_INIT_TITLE
-    desc = (desc or "").strip() or "Describe the change set."
+    """Create feature directory, initialize ``{feature}_spec.html``/``{feature}_questions.html``, then chdir into it."""
+    feature_title = (title or "").strip() or DEFAULT_INIT_TITLE
+    feature_desc = (desc or "").strip() or "Describe the change set."
     if target is None:
-        target = Path(spec_folder_name_from_title(title))
-    target.mkdir(parents=True, exist_ok=True)
-    spec_path = target / "spec.html"
-    if spec_path.exists():
-        raise click.ClickException(f"already exists: {spec_path}")
-    spec_ops.write_minimal_spec(spec_path, title, desc)
+        target = Path(spec_folder_name_from_title(feature_title))
+    if target.exists():
+        raise click.ClickException(f"already exists: {target}")
+    target.mkdir(parents=True, exist_ok=False)
+    feature_name = target.name
+    spec_path = target / f"{feature_name}_spec.html"
+    try:
+        spec_ops.write_minimal_spec(
+            spec_path,
+            feature_title,
+            feature_desc,
+            user_body_sid=(user_spec_sid or "").strip() or None,
+        )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    questions_path = _questions_file_path(spec_path)
+    qroot = xmlio.load_tree(spec_path)
+    qroot.set("doc-kind", "questions")
+    xmlio.write_tree(questions_path, qroot)
+    os.chdir(target)
     click.echo(f"Created {spec_path}")
+    click.echo(f"Created {questions_path}")
+    click.echo(f"Changed directory to {target.resolve()}")
 
 
 # --- spec (change-set level) ---
@@ -322,7 +412,9 @@ def init_cmd(
 @cli.group("spec", invoke_without_command=True)
 @click.pass_context
 def spec_cmd(ctx: click.Context) -> None:
-    """Change-set document: ``read`` (description) and ``update -d`` (replace description)."""
+    """The change-set description is the Markdown overview (``p type=desc``); use ``ref`` for external links (``ul type=references`` under ``body``).
+
+    Subcommands: ``read``, ``update``, ``ref`` (``add`` / ``list`` / ``read`` / ``delete``)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -330,7 +422,7 @@ def spec_cmd(ctx: click.Context) -> None:
 @spec_cmd.command("read")
 @click.pass_context
 def spec_read_cmd(ctx: click.Context) -> None:
-    """Print the change-set description (``p`` ``type=desc`` under ``body``)."""
+    """Print the change-set description (``p`` ``type=desc``): the Markdown scope/overview under the title."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     click.echo(spec_ops.spec_desc_read(root))
@@ -340,12 +432,117 @@ def spec_read_cmd(ctx: click.Context) -> None:
 @click.option("-d", "--desc", required=True, help=_MARKDOWN_TEXT_HELP)
 @click.pass_context
 def spec_update_cmd(ctx: click.Context, desc: str) -> None:
-    """Replace the change-set description (Markdown)."""
+    """Replace the scope/overview Markdown that frames the change set for readers and reviewers."""
     obj = ctx.obj
     path = _work(obj)
     with _mutating(path) as root:
         spec_ops.spec_desc_set(root, desc)
     click.echo("updated spec description")
+
+
+@spec_cmd.group("ref")
+@click.pass_context
+def spec_ref_cmd(ctx: click.Context) -> None:
+    """External links for the change set (HTML ``ul type=references`` → ``li`` → ``a href`` under ``body``).
+
+    Subcommands: ``add``, ``list``, ``read``, ``delete``."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@spec_ref_cmd.command("add")
+@click.option("--url", "-u", "url", required=True, help="Target URL (stored as the link href).")
+@click.option("--label", "-l", "label", required=True, help="Link text (anchor body).")
+@click.option("--with-sid", "user_ref_sid", default=None, help=_REF_WITH_SID_HELP)
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def spec_ref_add_cmd(
+    ctx: click.Context,
+    url: str,
+    label: str,
+    user_ref_sid: str | None,
+    porcelain: bool,
+) -> None:
+    """Append a reference link (creates ``ul type=references`` when missing)."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        try:
+            rid = spec_ops.spec_ref_add(
+                root,
+                url,
+                label,
+                user_sid=(user_ref_sid or "").strip() or None,
+            )
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
+    _emit(porcelain, ids.PREFIX_REF, rid)
+    if not porcelain:
+        click.echo(f"added reference {rid}")
+
+
+@spec_ref_cmd.command("list")
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def spec_ref_list_cmd(ctx: click.Context, porcelain: bool) -> None:
+    """List reference links: ``sid``, ``href``, and label text per line."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    rows = spec_ops.spec_ref_list(root)
+    if porcelain:
+        for sid, _href, _lab in rows:
+            click.echo(format_porcelain(ids.PREFIX_REF, sid))
+        return
+    for sid, href, lab in rows:
+        click.echo(f"{sid}\t{href}\t{lab}")
+
+
+@spec_ref_cmd.command("read")
+@click.option("--sid", "-s", "ref_sid", default=None, help=_SID_HELP)
+@click.option("--id", "ref_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def spec_ref_read_cmd(
+    ctx: click.Context, ref_sid: str | None, ref_dom_id: str | None
+) -> None:
+    """Print ``url:`` and ``label:`` lines for one reference link."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    ref_id = _sid_or_dom_id(
+        root,
+        ref_sid,
+        ref_dom_id,
+        label="reference",
+        from_dom=dom_resolve.ref_sid_from_dom_id,
+    )
+    row = spec_ops.spec_ref_read(root, ref_id)
+    if row is None:
+        raise click.ClickException(f"unknown reference: {ref_id}")
+    href, lab = row
+    click.echo(f"url:\t{href}")
+    click.echo(f"label:\t{lab}")
+
+
+@spec_ref_cmd.command("delete")
+@click.option("--sid", "-s", "ref_sid", default=None, help=_SID_HELP)
+@click.option("--id", "ref_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def spec_ref_delete_cmd(
+    ctx: click.Context, ref_sid: str | None, ref_dom_id: str | None
+) -> None:
+    """Remove a reference link by ``sid`` or DOM fragment ``id``."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        ref_id = _sid_or_dom_id(
+            root,
+            ref_sid,
+            ref_dom_id,
+            label="reference",
+            from_dom=dom_resolve.ref_sid_from_dom_id,
+        )
+        if not spec_ops.spec_ref_delete(root, ref_id):
+            raise click.ClickException(f"unknown reference: {ref_id}")
+    click.echo(f"deleted {ref_id}")
 
 
 # --- export ---
@@ -354,7 +551,9 @@ def spec_update_cmd(ctx: click.Context, desc: str) -> None:
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def export(ctx: click.Context) -> None:
-    """Export the spec to Markdown or JSON for reading, review, or integration (see markdown | json)."""
+    """Exports materialize the whole spec for humans (Markdown) or machines (JSON) — the primary read path outside the CLI lists.
+
+    Subcommands: ``markdown`` and ``json``."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -363,7 +562,7 @@ def export(ctx: click.Context) -> None:
 @export.command("markdown")
 @click.pass_context
 def export_markdown(ctx: click.Context) -> None:
-    """Print a Markdown outline (title, description, use cases, acceptance criteria, tests)."""
+    """Write a readable Markdown outline of the change set (title, description, entities, plan) for review and diffs."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     click.echo(spec_ops.spec_to_markdown(root), nl=False)
@@ -372,7 +571,7 @@ def export_markdown(ctx: click.Context) -> None:
 @export.command("json")
 @click.pass_context
 def export_json(ctx: click.Context) -> None:
-    """Print the HTML specification tree as pretty-printed JSON."""
+    """Emit the spec tree as pretty-printed JSON for scripts, tests, and integrations."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     click.echo(spec_ops.spec_to_json(root), nl=False)
@@ -384,7 +583,13 @@ def export_json(ctx: click.Context) -> None:
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def uc(ctx: click.Context) -> None:
-    """Manage use cases—behavioral slices of the feature under specification."""
+    """Use cases bundle narrative, trigger, actors, pre/post conditions (atomic add/update), nested BRs/ACs, and Q&A.
+
+    Structured markup (nested ``div`` elements for ``actors``, ``preconditions``, and ``postconditions`` — not loose
+    typed ``<p>`` siblings) is defined in :mod:`spectr.uc_cli_layout`; these commands apply it through
+    :mod:`spectr.spec_ops`.
+
+    List, add, read, update, delete, deprecate (cascade BR/AC), and restore (UC only) use case nodes."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -393,6 +598,38 @@ def uc(ctx: click.Context) -> None:
 @uc.command("add")
 @click.option("--title", "-t", required=True)
 @click.option("--desc", "-d", default="", show_default=False, help=_MARKDOWN_TEXT_HELP)
+@click.option(
+    "--trigger",
+    required=True,
+    help="Trigger condition (required, non-empty).",
+)
+@click.option(
+    "--actor",
+    "actors",
+    multiple=True,
+    default=(),
+    help="Actor (required: pass at least once; repeat in order for multiple).",
+)
+@click.option(
+    "--precond",
+    "precond",
+    multiple=True,
+    default=(),
+    help="Precondition (required: pass at least once; repeat for more).",
+)
+@click.option(
+    "--postcond",
+    "postcond",
+    multiple=True,
+    default=(),
+    help="Postcondition (required: pass at least once; repeat for more).",
+)
+@click.option(
+    "--with-sid",
+    "user_uc_sid",
+    default=None,
+    help="For uc-…: " + _WITH_SID_ADD_HELP,
+)
 @click.option(
     "--porcelain",
     "-p",
@@ -404,25 +641,47 @@ def uc_add(
     ctx: click.Context,
     title: str,
     desc: str,
+    trigger: str,
+    actors: tuple[str, ...],
+    precond: tuple[str, ...],
+    postcond: tuple[str, ...],
+    user_uc_sid: str | None,
     porcelain: bool,
 ) -> None:
-    """Insert a new use case with title and description; optional porcelain id line for pipes."""
+    """Insert a new use case (narrative plus required trigger, actors, preconditions, postconditions)."""
     obj = ctx.obj
     path = _work(obj)
-    with _mutating(path) as root:
-        eid = spec_ops.uc_add(root, title, desc)
+    try:
+        with _mutating(path) as root:
+            eid = spec_ops.uc_add(
+                root,
+                title,
+                desc,
+                user_sid=(user_uc_sid.strip() if user_uc_sid else None),
+                trigger=trigger.strip(),
+                actors=tuple(x.strip() for x in actors if str(x).strip()),
+                preconditions=tuple(x.strip() for x in precond if str(x).strip()),
+                postconditions=tuple(x.strip() for x in postcond if str(x).strip()),
+            )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
     _emit(porcelain, ids.PREFIX_UC, eid)
     if not porcelain:
         click.echo(f"added uc {eid}")
 
 
 @uc.command("list")
+@click.option(
+    "--include-deprecated",
+    is_flag=True,
+    help="Include use cases with deprecated=\"true\" (hidden by default).",
+)
 @click.pass_context
-def uc_list_cmd(ctx: click.Context) -> None:
+def uc_list_cmd(ctx: click.Context, include_deprecated: bool) -> None:
     """Print all use cases: sid, title, and a short description preview per line."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
-    for uid, tit, de in spec_ops.uc_list(root):
+    for uid, tit, de in spec_ops.uc_list(root, include_deprecated=include_deprecated):
         click.echo(f"{uid}\t{tit or ''}\t{de[:80]}")
 
 
@@ -431,7 +690,7 @@ def uc_list_cmd(ctx: click.Context) -> None:
 @click.option("--id", "uc_dom_id", default=None, help=_DOM_ID_HELP)
 @click.pass_context
 def uc_read_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None) -> None:
-    """Show the title and full description for one use case."""
+    """Show title, narrative, trigger, actors, and pre/post conditions for one use case."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     uc_id = _sid_or_dom_id(
@@ -440,9 +699,15 @@ def uc_read_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None) -
     row = spec_ops.uc_read(root, uc_id)
     if row is None:
         raise click.ClickException(f"unknown uc: {uc_id}")
-    tit, de = row
-    click.echo(f"title:\t{tit or ''}")
-    click.echo(f"desc:\t{de}")
+    click.echo(f"title:\t{row.title or ''}")
+    click.echo(f"desc:\t{row.desc}")
+    click.echo(f"trigger:\t{row.trigger or ''}")
+    for a in row.actors:
+        click.echo(f"actor:\t{a}")
+    for pr in row.preconditions:
+        click.echo(f"precond:\t{pr}")
+    for po in row.postconditions:
+        click.echo(f"postcond:\t{po}")
 
 
 @uc.command("update")
@@ -450,6 +715,28 @@ def uc_read_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None) -
 @click.option("--id", "uc_dom_id", default=None, help=_DOM_ID_HELP)
 @click.option("--title", "-t", default=None)
 @click.option("--desc", "-d", default=None, help=_MARKDOWN_TEXT_HELP)
+@click.option("--trigger", default=None, help="Trigger (omit on CLI to clear; required non-empty when set).")
+@click.option(
+    "--actor",
+    "actors",
+    multiple=True,
+    default=(),
+    help="Actor (repeat). Omit --actor entirely to clear all (invalid unless other fields restore a full UC).",
+)
+@click.option(
+    "--precond",
+    "precond",
+    multiple=True,
+    default=(),
+    help="Precondition (repeat). Omit --precond entirely to clear all.",
+)
+@click.option(
+    "--postcond",
+    "postcond",
+    multiple=True,
+    default=(),
+    help="Postcondition (repeat). Omit --postcond entirely to clear all.",
+)
 @click.pass_context
 def uc_update_cmd(
     ctx: click.Context,
@@ -457,19 +744,95 @@ def uc_update_cmd(
     uc_dom_id: str | None,
     title: str | None,
     desc: str | None,
+    trigger: str | None,
+    actors: tuple[str, ...],
+    precond: tuple[str, ...],
+    postcond: tuple[str, ...],
 ) -> None:
-    """Change the title and/or description of an existing use case."""
+    """Replace the whole use-case body: every option not passed on the CLI is cleared (atomic update).
+
+    A valid use case must have a non-empty trigger, at least one actor, one precondition, and one
+    postcondition — pass ``--trigger``, ``--actor`` (repeat), ``--precond``, and ``--postcond`` each
+    time so the result stays complete.
+
+    Deprecated use cases cannot be updated; use ``uc restore`` first.
+    """
     obj = ctx.obj
-    if title is None and desc is None:
-        raise click.ClickException("provide --title and/or --desc")
     path = _work(obj)
     with _mutating(path) as root:
         uc_id = _sid_or_dom_id(
             root, uc_sid, uc_dom_id, label="use case", from_dom=dom_resolve.uc_sid_from_dom_id
         )
-        if not spec_ops.uc_update(root, uc_id, title, desc):
-            raise click.ClickException(f"unknown uc: {uc_id}")
+        tit = (title if _cli_explicit(ctx, "title") else "") or ""
+        de = desc if _cli_explicit(ctx, "desc") else ""
+        tr = (trigger if _cli_explicit(ctx, "trigger") else "") or ""
+        act = (
+            tuple(x.strip() for x in actors if str(x).strip())
+            if _cli_explicit(ctx, "actors")
+            else ()
+        )
+        pres = (
+            tuple(x.strip() for x in precond if str(x).strip())
+            if _cli_explicit(ctx, "precond")
+            else ()
+        )
+        posts = (
+            tuple(x.strip() for x in postcond if str(x).strip())
+            if _cli_explicit(ctx, "postcond")
+            else ()
+        )
+        try:
+            spec_ops.uc_update(
+                root,
+                uc_id,
+                title=tit,
+                desc=de,
+                trigger=tr,
+                actors=act,
+                preconditions=pres,
+                postconditions=posts,
+            )
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
     click.echo(f"updated {uc_id}")
+
+
+@uc.command("deprecate")
+@click.option("--sid", "-s", "uc_sid", default=None, help=_SID_HELP)
+@click.option("--id", "uc_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def uc_deprecate_cmd(
+    ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None
+) -> None:
+    """Mark a use case deprecated and recursively deprecate BRs and ACs nested under it."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        uc_id = _sid_or_dom_id(
+            root, uc_sid, uc_dom_id, label="use case", from_dom=dom_resolve.uc_sid_from_dom_id
+        )
+        if not spec_ops.uc_deprecate(root, uc_id):
+            raise click.ClickException(f"unknown uc: {uc_id}")
+    click.echo(f"deprecated {uc_id}")
+
+
+@uc.command("restore")
+@click.option("--sid", "-s", "uc_sid", default=None, help=_SID_HELP)
+@click.option("--id", "uc_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def uc_restore_cmd(
+    ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None
+) -> None:
+    """Clear deprecation on the use-case div only (BR/AC deprecation is unchanged)."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        uc_id = _sid_or_dom_id(
+            root, uc_sid, uc_dom_id, label="use case", from_dom=dom_resolve.uc_sid_from_dom_id
+        )
+        if not spec_ops.uc_restore(root, uc_id):
+            raise click.ClickException(f"unknown uc: {uc_id}")
+    click.echo(f"restored {uc_id}")
 
 
 @uc.command("delete")
@@ -489,26 +852,29 @@ def uc_delete_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None)
     click.echo(f"deleted {uc_id}")
 
 
-# --- ac ---
+# --- br (business rules) ---
 
 
 @cli.group(invoke_without_command=True)
 @click.pass_context
-def ac(ctx: click.Context) -> None:
-    """Manage acceptance criteria—verifiable requirements that drive test cases (top-level or under a use case)."""
+def br(ctx: click.Context) -> None:
+    """Business rules are policy and invariants that cut across UI flows; they are citeable text, optionally scoped under a use case.
+
+    List, add, read, update, and delete business rule nodes."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
 
 
-@ac.command("add")
+@br.command("add")
 @click.option(
     "--desc",
     "-d",
     multiple=True,
     required=True,
     help=(
-        "Criterion description (Markdown; code and XML examples OK). "
+        "Rule text (Markdown; code and XML examples OK). "
+        'Must include at least one of "must", "may", "can", "cannot". '
         "Repeat to add several under the same parent."
     ),
 )
@@ -529,6 +895,451 @@ def ac(ctx: click.Context) -> None:
     is_flag=True,
     help="If --uc omitted and stdin is piped, read uc sid from first stdin line.",
 )
+@click.option(
+    "--with-sid",
+    multiple=True,
+    default=(),
+    help="For br-…: " + _WITH_SID_ADD_HELP,
+)
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def br_add_cmd(
+    ctx: click.Context,
+    desc: tuple[str, ...],
+    under_uc: str | None,
+    uc_node_id: str | None,
+    pipe_uc: bool,
+    with_sid: tuple[str, ...],
+    porcelain: bool,
+) -> None:
+    """Add business-rule paragraphs; ``--uc`` or stdin supplies the parent use-case ``sid`` (omit for body-level rules)."""
+    obj = ctx.obj
+    path = _work(obj)
+    if uc_node_id and (under_uc is not None or pipe_uc):
+        raise click.ClickException("Do not combine --uc-id with --uc or --pipe-uc.")
+    parent_uc: str | None
+    if uc_node_id and str(uc_node_id).strip():
+        snap = _read_spec(path)
+        parent_uc = dom_resolve.uc_sid_from_dom_id(snap, str(uc_node_id).strip())
+        if not parent_uc:
+            raise click.ClickException(f"No use case matches node id {uc_node_id!r}.")
+    elif under_uc is None and not pipe_uc:
+        parent_uc = None
+    elif under_uc is not None and under_uc != "-":
+        parent_uc = under_uc
+    else:
+        uc_resolved = resolve_entity_id(
+            under_uc,
+            use_stdin_if_dash=(under_uc == "-"),
+            use_stdin_if_piped=(under_uc is None and pipe_uc),
+        )
+        if not uc_resolved:
+            raise click.ClickException("could not resolve use case sid (--uc or stdin)")
+        parent_uc = uc_resolved
+    if with_sid and len(with_sid) != len(desc):
+        raise click.ClickException("--with-sid must be omitted or repeated once per --desc.")
+    new_ids: list[str] = []
+    try:
+        with _mutating(path) as root:
+            for text, ws in zip_longest(desc, with_sid, fillvalue=None):
+                eid = spec_ops.br_add(
+                    root, text, under_uc_id=parent_uc, user_sid=(ws.strip() if ws else None)
+                )
+                new_ids.append(eid)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    for eid in new_ids:
+        _emit(porcelain, ids.PREFIX_BR, eid)
+        if not porcelain:
+            click.echo(f"added br {eid}")
+
+
+@br.command("list")
+@click.option("--recursive", "-r", is_flag=True)
+@click.option(
+    "--include-deprecated",
+    is_flag=True,
+    help="Include items with deprecated=\"true\" (hidden by default).",
+)
+@click.pass_context
+def br_list_cmd(
+    ctx: click.Context,
+    recursive: bool,
+    include_deprecated: bool,
+) -> None:
+    """List business rules (flat: scope column) or --recursive paths under ucs."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    if recursive:
+        for path, bid in spec_ops.br_list_recursive(
+            root, include_deprecated=include_deprecated
+        ):
+            click.echo(f"{path}\t{bid}")
+    else:
+        for bid, scope, prev in spec_ops.br_list_flat(
+            root, include_deprecated=include_deprecated
+        ):
+            click.echo(f"{bid}\t{scope}\t{prev}")
+
+
+@br.command("read")
+@click.option("--sid", "-s", "br_sid", default=None, help=_SID_HELP)
+@click.option("--id", "br_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def br_read_cmd(ctx: click.Context, br_sid: str | None, br_dom_id: str | None) -> None:
+    """Print the text body for one business rule."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    br_id = _sid_or_dom_id(
+        root,
+        br_sid,
+        br_dom_id,
+        label="business rule",
+        from_dom=dom_resolve.br_sid_from_dom_id,
+    )
+    text = spec_ops.br_read(root, br_id)
+    if text is None:
+        raise click.ClickException(f"unknown br: {br_id}")
+    click.echo(text)
+
+
+@br.command("update")
+@click.option("--sid", "-s", "br_sid", default=None, help=_SID_HELP)
+@click.option("--id", "br_dom_id", default=None, help=_DOM_ID_HELP)
+@click.option("--desc", "-d", default=None, help=_MARKDOWN_TEXT_HELP)
+@click.option(
+    "--deprecated/--not-deprecated",
+    "deprecated_flag",
+    default=None,
+    help='Set or clear ``deprecated="true"``; omit to leave unchanged.',
+)
+@click.pass_context
+def br_update_cmd(
+    ctx: click.Context,
+    br_sid: str | None,
+    br_dom_id: str | None,
+    desc: str | None,
+    deprecated_flag: bool | None,
+) -> None:
+    """Replace business rule text and/or deprecated flag (entity ``sid`` is fixed at add time)."""
+    if desc is None and deprecated_flag is None:
+        raise click.ClickException(
+            "Provide --desc and/or --deprecated/--not-deprecated."
+        )
+    obj = ctx.obj
+    path = _work(obj)
+    try:
+        with _mutating(path) as root:
+            br_id = _sid_or_dom_id(
+                root,
+                br_sid,
+                br_dom_id,
+                label="business rule",
+                from_dom=dom_resolve.br_sid_from_dom_id,
+            )
+            out = spec_ops.br_update(
+                root, br_id, desc, deprecated=deprecated_flag
+            )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    if out is None:
+        raise click.ClickException(f"unknown br: {br_id}")
+    click.echo(f"updated {out}")
+
+
+@br.command("delete")
+@click.option("--sid", "-s", "br_sid", default=None, help=_SID_HELP)
+@click.option("--id", "br_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def br_delete_cmd(ctx: click.Context, br_sid: str | None, br_dom_id: str | None) -> None:
+    """Delete a business rule (wherever it appears in the tree)."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        br_id = _sid_or_dom_id(
+            root,
+            br_sid,
+            br_dom_id,
+            label="business rule",
+            from_dom=dom_resolve.br_sid_from_dom_id,
+        )
+        if not spec_ops.br_delete(root, br_id):
+            raise click.ClickException(f"unknown br: {br_id}")
+    click.echo(f"deleted {br_id}")
+
+
+# --- def (glossary definitions; body-level only) ---
+
+
+_DEF_WITH_SID_HELP = (
+    "Optional definition sid: any unique string. "
+    "Omit for auto def- + 8 lowercase hex digits."
+)
+_DEF_BODY_HELP = (
+    "Definition body (Markdown). Synonyms: ``--desc``. Separate from ``--term`` (short label stored as "
+    "``<span type=term>`` in the HTML). Max 500 chars; one term/definition per row."
+)
+
+
+@cli.group("def", invoke_without_command=True)
+@click.pass_context
+def def_cli(ctx: click.Context):
+    """Definitions are a top-level glossary (terms and meanings grouped by section) so ACs and BRs share one vocabulary.
+
+    List, add, read, update, and delete definition paragraphs under ``div type=definitions``."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@def_cli.command("add")
+@click.option(
+    "-d",
+    "--desc",
+    "--definition",
+    "definition_body",
+    required=True,
+    help=_MARKDOWN_TEXT_HELP + " " + _DEF_BODY_HELP,
+)
+@click.option(
+    "--section",
+    "-S",
+    required=True,
+    help='Section heading for grouping (e.g. "Candidate states (used in metrics and ACs)").',
+)
+@click.option(
+    "--term",
+    "-t",
+    default=None,
+    help='Optional glossary term label (e.g. Invited); max 100 chars; rendered as <span type="term"> in the HTML.',
+)
+@click.option("--with-sid", "user_sid", default=None, help=_DEF_WITH_SID_HELP)
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def def_add_cmd(
+    ctx: click.Context,
+    definition_body: str,
+    section: str,
+    term: str | None,
+    user_sid: str | None,
+    porcelain: bool,
+) -> None:
+    """Append a ``p type=definition`` under ``div type=definitions`` (created if missing)."""
+    obj = ctx.obj
+    path = _work(obj)
+    ut = (user_sid or "").strip() or None
+    try:
+        with _mutating(path) as root:
+            eid = spec_ops.def_add(
+                root,
+                definition_body,
+                section=section,
+                term=(term or "").strip() or None,
+                user_sid=ut,
+            )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    _emit(porcelain, ids.PREFIX_DEF, eid)
+    if not porcelain:
+        click.echo(f"added definition {eid}")
+
+
+@def_cli.command("list")
+@click.option(
+    "--include-deprecated",
+    is_flag=True,
+    help="Include definitions with deprecated=\"true\" (hidden by default).",
+)
+@click.pass_context
+def def_list_cmd(ctx: click.Context, include_deprecated: bool) -> None:
+    """List definitions: sid, section, term, preview."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    for sid, sec, tm, prev in spec_ops.def_list_flat(
+        root, include_deprecated=include_deprecated
+    ):
+        term_col = tm if tm else ""
+        click.echo(f"{sid}\t{sec}\t{term_col}\t{prev}")
+
+
+@def_cli.command("read")
+@click.option("--sid", "-s", "def_sid", default=None, help=_SID_HELP)
+@click.option("--id", "def_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def def_read_cmd(
+    ctx: click.Context, def_sid: str | None, def_dom_id: str | None
+) -> None:
+    """Print section, optional term, and body for one definition."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    did = _sid_or_dom_id(
+        root,
+        def_sid,
+        def_dom_id,
+        label="definition",
+        from_dom=dom_resolve.def_sid_from_dom_id,
+    )
+    row = spec_ops.def_read(root, did)
+    if row is None:
+        raise click.ClickException(f"unknown definition: {did}")
+    sec, tm, body = row
+    click.echo(f"section:\t{sec}")
+    click.echo(f"term:\t{tm}")
+    click.echo(f"definition:\t{body}")
+
+
+@def_cli.command("update")
+@click.option("--sid", "-s", "def_sid", default=None, help=_SID_HELP)
+@click.option("--id", "def_dom_id", default=None, help=_DOM_ID_HELP)
+@click.option(
+    "-d",
+    "--desc",
+    "--definition",
+    "desc",
+    default=None,
+    help=_MARKDOWN_TEXT_HELP + " " + _DEF_BODY_HELP,
+)
+@click.option("--section", "-S", default=None, help="Replace section grouping.")
+@click.option(
+    "--term",
+    "-t",
+    default=None,
+    help='Replace term label (<span type="term">); omit to leave unchanged.',
+)
+@click.option(
+    "--clear-term",
+    is_flag=True,
+    help='Remove the term label (<span type="term"> or legacy attribute).',
+)
+@click.option(
+    "--deprecated/--not-deprecated",
+    "deprecated_flag",
+    default=None,
+    help='Set or clear ``deprecated="true"``; omit to leave unchanged.',
+)
+@click.pass_context
+def def_update_cmd(
+    ctx: click.Context,
+    def_sid: str | None,
+    def_dom_id: str | None,
+    desc: str | None,
+    section: str | None,
+    term: str | None,
+    clear_term: bool,
+    deprecated_flag: bool | None,
+) -> None:
+    """Update definition text, section, term, and/or deprecated flag."""
+    if (
+        desc is None
+        and section is None
+        and term is None
+        and not clear_term
+        and deprecated_flag is None
+    ):
+        raise click.ClickException(
+            "Provide at least one of --definition/--desc, --section, --term, --clear-term, "
+            "--deprecated/--not-deprecated."
+        )
+    if clear_term and term is not None:
+        raise click.ClickException("Use only one of --term and --clear-term.")
+    obj = ctx.obj
+    path = _work(obj)
+    try:
+        with _mutating(path) as root:
+            did = _sid_or_dom_id(
+                root,
+                def_sid,
+                def_dom_id,
+                label="definition",
+                from_dom=dom_resolve.def_sid_from_dom_id,
+            )
+            out = spec_ops.def_update(
+                root,
+                did,
+                desc,
+                section=section,
+                term=None if clear_term else term,
+                remove_term=clear_term,
+                deprecated=deprecated_flag,
+            )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    if out is None:
+        raise click.ClickException(f"unknown definition: {did}")
+    click.echo(f"updated {out}")
+
+
+@def_cli.command("delete")
+@click.option("--sid", "-s", "def_sid", default=None, help=_SID_HELP)
+@click.option("--id", "def_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def def_delete_cmd(
+    ctx: click.Context, def_sid: str | None, def_dom_id: str | None
+) -> None:
+    """Remove a definition from the spec."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        did = _sid_or_dom_id(
+            root,
+            def_sid,
+            def_dom_id,
+            label="definition",
+            from_dom=dom_resolve.def_sid_from_dom_id,
+        )
+        if not spec_ops.def_delete(root, did):
+            raise click.ClickException(f"unknown definition: {did}")
+    click.echo(f"deleted {did}")
+
+
+# --- ac ---
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def ac(ctx: click.Context) -> None:
+    """Acceptance criteria are verifiable “done” statements; they anchor tests and settle whether behavior meets intent.
+
+    List, add, read, update, and delete AC nodes (top-level or under a use case)."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+        return
+
+
+@ac.command("add")
+@click.option(
+    "--desc",
+    "-d",
+    multiple=True,
+    required=True,
+    help=(
+        "Criterion description (Markdown; code and XML examples OK). "
+        "Must contain Given, When, Then in that order exactly once each. "
+        "Repeat to add several under the same parent."
+    ),
+)
+@click.option(
+    "--uc",
+    "under_uc",
+    default=None,
+    help="Parent use case sid, or '-' to read sid from first stdin line (pipe from uc add).",
+)
+@click.option(
+    "--uc-id",
+    "uc_node_id",
+    default=None,
+    help="Parent use case via DOM node id (under that use case: h3, narrative p, …).",
+)
+@click.option(
+    "--pipe-uc",
+    is_flag=True,
+    help="If --uc omitted and stdin is piped, read uc sid from first stdin line.",
+)
+@click.option(
+    "--with-sid",
+    multiple=True,
+    default=(),
+    help="For ac-…: " + _WITH_SID_ADD_HELP,
+)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.pass_context
 def ac_add_cmd(
@@ -537,6 +1348,7 @@ def ac_add_cmd(
     under_uc: str | None,
     uc_node_id: str | None,
     pipe_uc: bool,
+    with_sid: tuple[str, ...],
     porcelain: bool,
 ) -> None:
     """Add acceptance-criteria paragraphs; ``--uc`` or stdin supplies the parent use-case ``sid`` (omit for body-level AC)."""
@@ -563,12 +1375,19 @@ def ac_add_cmd(
         if not uc_resolved:
             raise click.ClickException("could not resolve use case sid (--uc or stdin)")
         parent_uc = uc_resolved
+    if with_sid and len(with_sid) != len(desc):
+        raise click.ClickException("--with-sid must be omitted or repeated once per --desc.")
     # Load spec after resolving stdin so a producer in a pipe can finish writing.
     new_ids: list[str] = []
-    with _mutating(path) as root:
-        for text in desc:
-            eid = spec_ops.ac_add(root, text, under_uc_id=parent_uc)
-            new_ids.append(eid)
+    try:
+        with _mutating(path) as root:
+            for text, ws in zip_longest(desc, with_sid, fillvalue=None):
+                eid = spec_ops.ac_add(
+                    root, text, under_uc_id=parent_uc, user_sid=(ws.strip() if ws else None)
+                )
+                new_ids.append(eid)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
     for eid in new_ids:
         _emit(porcelain, ids.PREFIX_AC, eid)
         if not porcelain:
@@ -577,16 +1396,29 @@ def ac_add_cmd(
 
 @ac.command("list")
 @click.option("--recursive", "-r", is_flag=True)
+@click.option(
+    "--include-deprecated",
+    is_flag=True,
+    help="Include items with deprecated=\"true\" (hidden by default).",
+)
 @click.pass_context
-def ac_list_cmd(ctx: click.Context, recursive: bool) -> None:
+def ac_list_cmd(
+    ctx: click.Context,
+    recursive: bool,
+    include_deprecated: bool,
+) -> None:
     """List criteria (flat: scope column) or --recursive paths under ucs."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     if recursive:
-        for path, aid in spec_ops.ac_list_recursive(root):
+        for path, aid in spec_ops.ac_list_recursive(
+            root, include_deprecated=include_deprecated
+        ):
             click.echo(f"{path}\t{aid}")
     else:
-        for aid, scope, prev in spec_ops.ac_list_flat(root):
+        for aid, scope, prev in spec_ops.ac_list_flat(
+            root, include_deprecated=include_deprecated
+        ):
             click.echo(f"{aid}\t{scope}\t{prev}")
 
 
@@ -614,28 +1446,46 @@ def ac_read_cmd(ctx: click.Context, ac_sid: str | None, ac_dom_id: str | None) -
 @ac.command("update")
 @click.option("--sid", "-s", "ac_sid", default=None, help=_SID_HELP)
 @click.option("--id", "ac_dom_id", default=None, help=_DOM_ID_HELP)
-@click.option("--desc", "-d", required=True, help=_MARKDOWN_TEXT_HELP)
+@click.option("--desc", "-d", default=None, help=_MARKDOWN_TEXT_HELP)
+@click.option(
+    "--deprecated/--not-deprecated",
+    "deprecated_flag",
+    default=None,
+    help='Set or clear ``deprecated="true"``; omit to leave unchanged.',
+)
 @click.pass_context
 def ac_update_cmd(
     ctx: click.Context,
     ac_sid: str | None,
     ac_dom_id: str | None,
-    desc: str,
+    desc: str | None,
+    deprecated_flag: bool | None,
 ) -> None:
-    """Replace the description text of an acceptance criterion."""
+    """Replace acceptance-criterion text and/or deprecated flag (entity ``sid`` is fixed at add time)."""
+    if desc is None and deprecated_flag is None:
+        raise click.ClickException(
+            "Provide --desc and/or --deprecated/--not-deprecated."
+        )
     obj = ctx.obj
     path = _work(obj)
-    with _mutating(path) as root:
-        ac_id = _sid_or_dom_id(
-            root,
-            ac_sid,
-            ac_dom_id,
-            label="acceptance criterion",
-            from_dom=dom_resolve.ac_sid_from_dom_id,
-        )
-        if not spec_ops.ac_update(root, ac_id, desc):
-            raise click.ClickException(f"unknown ac: {ac_id}")
-    click.echo(f"updated {ac_id}")
+    ac_id = ""
+    try:
+        with _mutating(path) as root:
+            ac_id = _sid_or_dom_id(
+                root,
+                ac_sid,
+                ac_dom_id,
+                label="acceptance criterion",
+                from_dom=dom_resolve.ac_sid_from_dom_id,
+            )
+            out = spec_ops.ac_update(
+                root, ac_id, desc, deprecated=deprecated_flag
+            )
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    if out is None:
+        raise click.ClickException(f"unknown ac: {ac_id}")
+    click.echo(f"updated {out}")
 
 
 @ac.command("delete")
@@ -665,7 +1515,9 @@ def ac_delete_cmd(ctx: click.Context, ac_sid: str | None, ac_dom_id: str | None)
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def test(ctx: click.Context) -> None:
-    """Manage test cases tied to acceptance criteria—how criteria become concrete checks."""
+    """Tests are concrete validation steps linked to an AC; they describe how to prove a criterion in practice.
+
+    Add, read, update, and delete test nodes under the body ``tests`` block."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -675,6 +1527,7 @@ def test(ctx: click.Context) -> None:
 @click.option("--ac", "ac_sid", default=None, help="Acceptance criterion sid.")
 @click.option("--ac-id", "ac_node_id", default=None, help="Acceptance criterion DOM node id.")
 @click.option("--desc", "-d", required=True, help=_MARKDOWN_TEXT_HELP)
+@click.option("--with-sid", "user_test_sid", default=None, help=_TEST_WITH_SID_HELP)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.pass_context
 def test_add_cmd(
@@ -682,6 +1535,7 @@ def test_add_cmd(
     ac_sid: str | None,
     ac_node_id: str | None,
     desc: str,
+    user_test_sid: str | None,
     porcelain: bool,
 ) -> None:
     """Add a ``p type=test`` under the body tests block; reference the AC by ``--ac`` or ``--ac-id``."""
@@ -701,7 +1555,8 @@ def test_add_cmd(
                     raise click.ClickException(f"No acceptance criterion matches node id {ac_node_id!r}.")
             else:
                 ac_id = str(ac_sid).strip()
-            eid = spec_ops.test_add(root, ac_id, desc)
+            ut = (user_test_sid or "").strip() or None
+            eid = spec_ops.test_add(root, ac_id, desc, user_sid=ut)
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     _emit(porcelain, ids.PREFIX_TEST, eid)
@@ -786,7 +1641,9 @@ def test_delete_cmd(ctx: click.Context, test_sid: str | None, test_dom_id: str |
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def qs(ctx: click.Context) -> None:
-    """Ask, answer, or list Q&A threads so roles can refine requirements on entities in the specification."""
+    """Q&A threads record questions and answers on spec entities so ambiguity is resolved with auditable history.
+
+    Ask, answer, list, deprecate, and delete Q&A items (author roles apply)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -816,6 +1673,7 @@ def qs(ctx: click.Context) -> None:
 @click.argument("question_arg", required=False)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.option("--role", "-r", "cmd_role", default=None, help=_CMD_ROLE_HELP)
+@click.option("--with-sid", "user_thread_sid", default=None, help=_QS_THREAD_WITH_SID_HELP)
 @click.pass_context
 def qs_ask_cmd(
     ctx: click.Context,
@@ -828,6 +1686,7 @@ def qs_ask_cmd(
     question_arg: str | None,
     porcelain: bool,
     cmd_role: str | None,
+    user_thread_sid: str | None,
 ) -> None:
     """Post a question against the spec (body ``sid``), a use-case ``sid``, or an AC ``sid``; answer with ``qs answer``.
 
@@ -843,7 +1702,7 @@ def qs_ask_cmd(
     has_dom = target_dom_id is not None and str(target_dom_id).strip() != ""
     if has_sid and has_dom:
         raise click.ClickException("Use only one of --sid or --id for the question target.")
-    path = _work(obj)
+    path = _questions_work(obj)
     if has_dom:
         root_snap = _read_spec(path)
         tid = dom_resolve.qs_target_sid_from_dom_id(root_snap, str(target_dom_id).strip())
@@ -866,10 +1725,16 @@ def qs_ask_cmd(
     if not qtext:
         qtext = click.prompt("Question text")
 
+    ut = (user_thread_sid or "").strip() or None
     try:
         with _mutating(path) as root:
             qid = spec_ops.qs_ask(
-                root, tid, qtext, author=author_resolved, target_role=target_role
+                root,
+                tid,
+                qtext,
+                author=author_resolved,
+                target_role=target_role,
+                user_sid=ut,
             )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
@@ -905,7 +1770,7 @@ def qs_answer_cmd(
     body = text
     if not body:
         body = click.prompt("Answer text")
-    path = _work(obj)
+    path = _questions_work(obj)
     with _mutating(path) as root:
         question_id = _sid_or_dom_id(
             root,
@@ -920,13 +1785,88 @@ def qs_answer_cmd(
 
 
 @qs.command("list")
+@click.option(
+    "--include-deprecated",
+    is_flag=True,
+    help="Include threads whose question has deprecated=\"true\" (hidden by default).",
+)
 @click.pass_context
-def qs_list_cmd(ctx: click.Context) -> None:
+def qs_list_cmd(ctx: click.Context, include_deprecated: bool) -> None:
     """List questions: thread sid, context ref (e.g. parent uc sid), author, preview."""
     obj = ctx.obj
-    root = _read_spec(_work(obj))
-    for qid, ref, auth, prev in spec_ops.qs_list(root):
+    root = _read_spec(_questions_work(obj))
+    for qid, ref, auth, prev in spec_ops.qs_list(
+        root, include_deprecated=include_deprecated
+    ):
         click.echo(f"{qid}\t{ref or ''}\t{auth or ''}\t{prev}")
+
+
+@qs.command("deprecate")
+@click.option("--sid", "-s", "thread_sid", default=None, help="Question thread sid (q-…).")
+@click.option(
+    "--id",
+    "question_dom_id",
+    default=None,
+    help="DOM id of a question or answer paragraph in that thread.",
+)
+@click.option(
+    "--clear",
+    is_flag=True,
+    help="Clear deprecated=\"true\" instead of setting it.",
+)
+@click.pass_context
+def qs_deprecate_cmd(
+    ctx: click.Context,
+    thread_sid: str | None,
+    question_dom_id: str | None,
+    clear: bool,
+) -> None:
+    """Set or clear the deprecated flag on a question thread (the ``p type=question`` element)."""
+    obj = ctx.obj
+    path = _questions_work(obj)
+    with _mutating(path) as root:
+        tid = _sid_or_dom_id(
+            root,
+            thread_sid,
+            question_dom_id,
+            label="question thread",
+            from_dom=dom_resolve.qs_thread_sid_from_dom_id,
+        )
+        if not spec_ops.qs_set_deprecated(root, tid, deprecated=not clear):
+            raise click.ClickException(f"unknown question thread: {tid}")
+    click.echo(
+        f"{'cleared deprecated on' if clear else 'marked deprecated'} {tid}"
+    )
+
+
+@qs.command("delete")
+@click.option("--sid", "-s", "thread_sid", default=None, help="Question thread sid (q-…).")
+@click.option(
+    "--id",
+    "question_dom_id",
+    default=None,
+    help="DOM id of a question or answer paragraph in that thread.",
+)
+@click.pass_context
+def qs_delete_cmd(
+    ctx: click.Context,
+    thread_sid: str | None,
+    question_dom_id: str | None,
+) -> None:
+    """Remove a question thread (question and answer paragraphs) from the spec."""
+    obj = ctx.obj
+    path = _questions_work(obj)
+    with _mutating(path) as root:
+        tid = _sid_or_dom_id(
+            root,
+            thread_sid,
+            question_dom_id,
+            label="question thread",
+            from_dom=dom_resolve.qs_thread_sid_from_dom_id,
+        )
+        if not spec_ops.qs_delete(root, tid):
+            raise click.ClickException(f"unknown question thread: {tid}")
+    click.echo(f"deleted {tid}")
 
 
 # --- feedback ---
@@ -935,7 +1875,9 @@ def qs_list_cmd(ctx: click.Context) -> None:
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def feedback(ctx: click.Context) -> None:
-    """Add or manage feedback on the specification during review."""
+    """Feedback stores unstructured review notes on the change set so stakeholders can comment outside formal Q&A.
+
+    Use ``feedback add`` to append an entry or ``feedback delete`` to remove one (author roles apply)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -969,21 +1911,60 @@ def feedback_add_cmd(
         click.echo(f"added feedback {eid}")
 
 
+@feedback.command("delete")
+@click.option("--sid", "-s", "feedback_sid", default=None, help=_SID_HELP)
+@click.option("--id", "feedback_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def feedback_delete_cmd(
+    ctx: click.Context,
+    feedback_sid: str | None,
+    feedback_dom_id: str | None,
+) -> None:
+    """Remove one feedback paragraph by sid or DOM id."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        fid = _sid_or_dom_id(
+            root,
+            feedback_sid,
+            feedback_dom_id,
+            label="feedback",
+            from_dom=dom_resolve.feedback_sid_from_dom_id,
+        )
+        if not spec_ops.feedback_delete(root, fid):
+            raise click.ClickException(f"unknown feedback: {fid}")
+    click.echo(f"deleted {fid}")
+
+
 # --- task (delivery plan: li type=task) ---
 
 
 _PH_HELP = (
     "Phase sid from `task list`: append under that phase. If it does not exist, a new phase "
-    "is created (auto ph-… sid) and the task is added there. If omitted: use the last phase, "
+    "is created using this ph-… sid and the task is added there. If omitted: use the last phase, "
     "or create one when none exist."
 )
 
 
-def _exec_task_add_auto(obj: dict, body: str, phase_sid: str | None, porcelain: bool) -> None:
+def _exec_task_add_auto(
+    obj: dict,
+    body: str,
+    phase_sid: str | None,
+    porcelain: bool,
+    *,
+    user_task_sid: str | None = None,
+    user_phase_sid: str | None = None,
+) -> None:
     path = _work(obj)
     try:
         with _mutating(path) as root:
-            eid = phase_ops.task_add_auto(root, body, phase_sid=phase_sid)
+            eid = phase_ops.task_add_auto(
+                root,
+                body,
+                phase_sid=phase_sid,
+                user_task_sid=user_task_sid,
+                user_phase_sid=user_phase_sid,
+            )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     _emit(porcelain, ids.PREFIX_TASK, eid)
@@ -994,7 +1975,9 @@ def _exec_task_add_auto(obj: dict, body: str, phase_sid: str | None, porcelain: 
 @cli.group("task", invoke_without_command=True)
 @click.pass_context
 def task_cli(ctx: click.Context) -> None:
-    """List or add delivery-plan tasks (``li type=task`` under ``div type=plan``)."""
+    """Tasks (and phases) are the delivery plan: ordered work to implement and ship the change set.
+
+    List, add, and delete tasks; missing plan markup is created as needed."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -1026,19 +2009,62 @@ def task_list_cmd(ctx: click.Context, phase_sid: str | None) -> None:
         click.echo(f"{ps}\t{ts}\t{prev}")
 
 
+@task_cli.command("delete")
+@click.option("--sid", "-s", "task_sid", default=None, help=_SID_HELP)
+@click.option("--id", "task_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def task_delete_cmd(
+    ctx: click.Context,
+    task_sid: str | None,
+    task_dom_id: str | None,
+) -> None:
+    """Remove a task from the delivery plan (empty phases and plan wrappers are pruned)."""
+    obj = ctx.obj
+    path = _work(obj)
+    with _mutating(path) as root:
+        tid = _sid_or_dom_id(
+            root,
+            task_sid,
+            task_dom_id,
+            label="task",
+            from_dom=dom_resolve.task_sid_from_dom_id,
+        )
+        if not phase_ops.task_delete(root, tid):
+            raise click.ClickException(f"unknown task: {tid}")
+    click.echo(f"deleted {tid}")
+
+
 @task_cli.command("add")
 @click.option("--desc", "-d", "body", required=True, help=_MARKDOWN_TEXT_HELP)
 @click.option("--ph", "phase_sid", default=None, help=_PH_HELP)
+@click.option("--with-sid", "user_task_sid", default=None, help=_TASK_WITH_SID_HELP)
+@click.option(
+    "--phase-with-sid",
+    "user_phase_sid",
+    default=None,
+    help=_TASK_PHASE_WITH_SID_HELP,
+)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.pass_context
 def task_add_delivery_cmd(
     ctx: click.Context,
     body: str,
     phase_sid: str | None,
+    user_task_sid: str | None,
+    user_phase_sid: str | None,
     porcelain: bool,
 ) -> None:
     """Append a task; creates plan/phases with auto sids when needed. ``--ph`` targets a phase by sid or creates one."""
-    _exec_task_add_auto(ctx.obj, body, phase_sid, porcelain)
+    ut = (user_task_sid or "").strip() or None
+    up = (user_phase_sid or "").strip() or None
+    _exec_task_add_auto(
+        ctx.obj,
+        body,
+        phase_sid,
+        porcelain,
+        user_task_sid=ut,
+        user_phase_sid=up,
+    )
 
 
 # --- uow (multi-command session) ---
@@ -1047,7 +2073,9 @@ def task_add_delivery_cmd(
 @cli.group("uow", invoke_without_command=True)
 @click.pass_context
 def uow_group(ctx: click.Context) -> None:
-    """Multi-command edit session: begin → mutate (draft) → commit or abort."""
+    """A unit of work is a short-lived draft of the spec: batch many CLI edits, then commit once to ``spec.html``.
+
+    ``begin`` → mutating subcommands (draft) → ``commit`` or ``abort``; ``status`` shows session state."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -1104,6 +2132,36 @@ def uow_status_cmd(ctx: click.Context) -> None:
     canon = Path(obj["spec_path"]).resolve()
     for line in uow_session.status_lines(canon):
         click.echo(line)
+
+
+@cli.command("serve")
+@click.option(
+    "--bind",
+    "-b",
+    "bind_host",
+    default="127.0.0.1",
+    metavar="ADDR",
+    help="Interface to bind (default 127.0.0.1).",
+)
+@click.option(
+    "--port",
+    "-p",
+    "port",
+    default=8765,
+    type=int,
+    help="TCP port (default 8765).",
+)
+def serve_cmd(bind_host: str, port: int) -> None:
+    """Serve files from the current working directory over HTTP.
+
+    Spectr HTML (``spec.html`` and ``*_spec.html``) opens in a wrapper page with an iframe;
+    chrome CSS/JS lives on the wrapper; typography CSS is applied inside the iframe.
+    Append ``?spectr-raw=1`` to load the spec document alone (no wrapper)."""
+    if not (1 <= port <= 65535):
+        raise click.ClickException("port must be between 1 and 65535")
+    from spectr.serve import run_serve
+
+    run_serve(Path.cwd(), bind_host, port)
 
 
 def main() -> None:

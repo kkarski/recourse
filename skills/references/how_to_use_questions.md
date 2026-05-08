@@ -1,171 +1,75 @@
-# How to Use questions.md
+# How to Use Questions in Spectr
 
-## Overview
+## Core Policy
 
-The `questions.md` file is the **SINGLE SOURCE OF TRUTH** for cross-role communication during feature development. It serves as a central communication log for questions, answers, and decision
-rationale.
+- You MUST treat Spectr Q&A (`spectr qs`) as the single system of record for cross-role questions, answers, and rationale.
+- You MUST NOT use `questions.md`, chat-only notes, side documents, or ad hoc messages as the primary Q&A record.
+- You MUST NOT bypass Spectr CLI for role-to-role or role-to-user clarification.
 
-## Location
+## CLI Help Commands for `qs`
 
-The questions document is located at:
+- You MUST run `spectr qs --help` before Q&A operations when you need command syntax confirmation.
+- You MUST run `spectr qs ask --help` before creating question threads if flag usage is uncertain.
+- You MUST run `spectr qs answer --help` before adding answers if flag usage is uncertain.
+- You MUST run `spectr qs list --help` before filtering or including deprecated threads.
+- You MUST run `spectr qs deprecate --help` before deprecating or restoring thread visibility.
 
-```
-/specs/{feature}/questions.md
-```
+## Required Question Flow
 
-Where `{feature}` is the name of the feature you're working on (e.g., `user-notifications`, `document-processing`).
-
-## What questions.md Contains
-
-This file contains:
-
-- **Questions FROM other roles directed TO you** - Questions that need your input
-- **Your answers TO those questions** - Your responses with rationale
-- **Your questions FOR other roles** - Questions you need answered
-- **Communication history and decision rationale** - Full Q&A history for traceability
-
-## How to Check for Questions Directed to You
-
-**Before starting work on any feature**, check the questions document:
+1. You MUST review existing threads before asking a new question by running `spectr qs list` (or `spectr qs list --include-deprecated` for full history).
+2. You MUST ask the new question using `spectr qs ask`.
+3. You MUST include role and author context (`--role` and/or `--author`) when required by team conventions.
+4. You MUST capture enough context in the question body for another role to answer without ambiguity.
 
 ```bash
-# Read the questions document for this feature
-Read /specs/{feature}/questions.md
+spectr qs list
+spectr qs ask -d "What are the retry limits for failed notifications?"
 ```
 
-Look for sections tagged with your role (see "Master Example" below for the complete structure).
+## Required Answer Flow
 
-## How to Answer Questions
+1. You MUST list open threads before answering.
+2. You MUST select the correct thread by `sid`.
+3. You MUST answer using `spectr qs answer`.
+4. You MUST include decision rationale in the answer body.
+5. You MUST re-list threads when needed to verify your answer is recorded.
 
-When you find questions directed to you, add your answers as numbered sub-items tagged with your role. Include rationale for your decisions.
-
-**Key points:**
-
-- Add answers as numbered sub-items (1.1, 1.2, etc.)
-- Tag your answer with your role (@Architect, @Engineer, @Information_Architect, @Product_Manager)
-- Include rationale for your decisions
-- Keep full Q&A history for traceability
-
-## How to Ask Questions
-
-When you need clarification from other roles, add questions to the appropriate section tagged with your role.
-
-**Key points:**
-
-- Add questions to the appropriate section (Questions for the Product Manager, Questions for the Architect, etc.)
-- Tag your question with your role
-- Be specific about what you need to know
-- Record questions even if the other role is unavailable (see "Proceeding with Assumptions" below)
-
-## Master Example
-
-Here's a complete example showing all patterns for how questions.md should look:
-
-```markdown
-## Questions for the User
-
-1. Why do users need this feature? What problem does it solve? - @Product_Manager
-    1. Users complained about too many notifications - @User
-2. What does "empty" really mean when evaluating a LinkedIn or Booking.com profile? - @Business_Analyst
-
-## Questions for the Architect
-
-1. How should we implement notification delivery for this feature? - @Product_Manager
-    1. Use event-driven pattern with NotificationRequested event. LlamaIndex workflow handles delivery logic. Rationale: Consistent with existing architecture, allows async processing, supports retry
-       logic. - @Architect
-2. What integration pattern should we use with the existing event system? - @Product_Manager
-    1. Publish NotificationRequested to existing event bus. NotificationWorkflow subscribes to event. Rationale: Decoupled design, follows existing event-driven patterns in system. - @Architect
-
-## Questions for the Product Manager
-
-1. What are the business rules for retry logic when notification delivery fails? - @Architect
-2. Should we support bulk notification operations or only single notifications? - @Architect
-3. What terminology do users use for "workspace" vs "project"? - @Information_Architect
-4. What terminology do users use for "workspace"? - @Information_Architect
-    - **Proceeding with assumption**: Using "Workspace" based on business spec language
-    - **If wrong**: Will need to update all nav labels
-    - **Validation needed**: User terminology research
-
-## Questions for the Engineer
-
-1. What's the expected performance requirement for this endpoint? - @Product_Manager
-
-## Questions for the Information Architect
-
-1. How should we organize the settings hierarchy? - @Product_Manager
-    1. Use 2-level hierarchy: Settings > Category. Max 6 top-level categories. Rationale: Reduces cognitive load, follows existing IA conventions. - @Information_Architect
-2. What URL structure does the navigation require? - @Architect
-    1. /feature/section/subsection pattern. Max 3 levels. See site map in {feature}_ia.md. - @Information_Architect
+```bash
+spectr qs list
+spectr qs answer -s q-1234abcd -d "Use 3 retries with exponential backoff. Rationale: balances reliability and system load."
 ```
 
-**This example demonstrates:**
+## Required Maintenance Flow
 
-- Questions from one role to another (e.g., PM asking Architect)
-- Answers formatted as numbered sub-items with rationale
-- Questions from multiple roles to the same role
-- Questions for the User with answers recorded
-- Proceeding with assumptions when a role is unavailable (question 4 under "Questions for the Product Manager")
+1. You MUST deprecate obsolete threads instead of deleting history.
+2. You MUST use `spectr qs deprecate -s <sid>` to retire obsolete threads.
+3. You MUST use `spectr qs deprecate -s <sid> --clear` to restore a thread when needed.
+4. You MUST use `spectr qs list --include-deprecated` when auditing full thread history.
 
-## Proceeding with Assumptions
-
-When other roles are unavailable, you can proceed with documented assumptions. Record these in questions.md using the format shown in the master example (question 4 under "Questions for the Product
-Manager"):
-
-```markdown
-## Questions for the Product Manager
-
-1. What terminology do users use for "workspace"? - @Information_Architect
-    - **Proceeding with assumption**: Using "Workspace" based on business spec language
-    - **If wrong**: Will need to update all nav labels
-    - **Validation needed**: User terminology research
+```bash
+spectr qs deprecate -s q-1234abcd
+spectr qs list --include-deprecated
 ```
 
-This ensures:
+## Behavioral Rules
 
-- Your assumptions are visible and can be validated later
-- The impact of wrong assumptions is documented
-- Decision history is maintained
+- You MUST ask one clear question at a time unless a batched question is explicitly approved.
+- You MUST NOT answer a question outside Spectr and then forget to record it.
+- You MUST NOT proceed on silent assumptions when a blocking question remains unanswered.
+- You MUST record assumptions in Spectr Q&A if work must continue before confirmation.
 
-## When to Use questions.md
+## Best Practices for High-Quality Q&A
 
-**ALWAYS use questions.md for:**
+- You MUST ask questions that are specific, bounded, and decision-oriented.
+- You MUST include relevant context (current behavior, constraint, and impact) in each question.
+- You MUST ask for the smallest missing decision that unblocks progress.
+- You MUST include 3 most likely suggested answers as selectable options when asking a question to a user.
+- You MUST provide an explicit option for the user to enter their own answer.
+- You MUST NOT ask vague questions such as "What should we do?" without scope and criteria.
 
-- Cross-role communication
-- Recording technical decisions and rationale
-- Asking clarifying questions about requirements
-- Documenting assumptions when proceeding without full information
-- Maintaining decision history and traceability
-
-**DO NOT:**
-
-- Make assumptions without documenting them
-- Skip checking questions.md before starting work
-- Answer questions without recording them in questions.md
-- Have side conversations outside of questions.md
-
-## Best Practices
-
-1. **Check questions.md FIRST** - Before starting any work on a feature, check for questions directed to you
-2. **Answer promptly** - When you find questions, answer them with rationale
-3. **Record everything** - All Q&A should be in questions.md for traceability
-4. **Include rationale** - Always explain why you made a decision, not just what you decided
-5. **Tag appropriately** - Use role tags (@Architect, @Engineer, @Information_Architect, @Product_Manager) to identify who asked/answered
-6. **Maintain history** - Don't delete old questions/answers; they provide valuable context
-
-## How to ask question of User
-- When you need to clarify requirements, use the ask questions tool
-- Do not ask questions as plain text - always use the ask questions tool
-- Always provide at least three viable and contextual answer options and a custom answer option with input
-- Ask one question at a time
-
-## Role-Specific Sections
-
-The questions.md file typically contains these sections:
-
-- `## Questions for the User` - Questions from Product Manager or Business Analyst to the user about requirements, needs, and business context
-- `## Questions for the Product Manager` - Questions about business requirements, user needs, acceptance criteria
-- `## Questions for the Architect` - Questions about technical architecture, technology choices, integration patterns
-- `## Questions for the Engineer` - Questions about implementation details, performance, feasibility
-- `## Questions for the Information Architect` - Questions about navigation, content organization, labeling
-
-Each role should check their section and respond appropriately. For role-specific workflows and detailed instructions, see the individual skill files (e.g., `acting-as-product-manager/SKILL.md`).
+- You MUST provide answers that are explicit, actionable, and directly tied to the asked question.
+- You MUST include rationale, trade-offs, and constraints in each answer when relevant.
+- You MUST state assumptions clearly and mark what still needs validation.
+- You MUST include acceptance implications when an answer changes requirements or behavior.
+- You MUST NOT provide ambiguous answers such as "it depends" without clear decision criteria.
+- You MUST NOT leave a thread without a concrete next step when the question is actionable.
