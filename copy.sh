@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy spectr skills to ~/.claude/skills (physical copy).
+# Copy spectr skills, agents, and plugin rules to ~/.claude (physical copy).
 # Overwrites any existing files in the target location.
 
 set -e
@@ -7,6 +7,12 @@ set -e
 SPECTR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="${SPECTR_ROOT}/skills"
 TARGET_BASE="${HOME}/.claude/skills"
+
+SOURCE_AGENTS="${SPECTR_ROOT}/agents"
+TARGET_AGENTS="${HOME}/.claude/agents"
+
+SOURCE_RULES="${SPECTR_ROOT}/.claude-plugin/rules"
+TARGET_RULES="${HOME}/.claude-plugin/rules"
 
 if [[ ! -d "$SOURCE" ]]; then
   echo "Error: skills folder not found at $SOURCE" >&2
@@ -67,6 +73,58 @@ for skill_dir in "$SOURCE"/*/; do
     echo "  Copied reference file: $skill_ref_file"
   fi
 done
+
+# Copy each top-level item under agents (files or folders), same remove-then-cp pattern as skills
+if [[ ! -d "$SOURCE_AGENTS" ]]; then
+  echo "Warning: agents folder not found at $SOURCE_AGENTS (skipping)" >&2
+else
+  mkdir -p "$TARGET_AGENTS"
+  for agent_item in "$SOURCE_AGENTS"/*; do
+    [[ -e "$agent_item" ]] || continue
+
+    agent_name="$(basename "$agent_item")"
+    agent_target="${TARGET_AGENTS}/${agent_name}"
+
+    echo "Copying agents/$agent_name..."
+
+    if [[ -e "$agent_target" ]]; then
+      if [[ -d "$agent_target" ]]; then
+        rm -rf "$agent_target"
+      else
+        rm -f "$agent_target"
+      fi
+    fi
+
+    cp -r "$agent_item" "$agent_target"
+    echo "  Copied $agent_item -> $agent_target"
+  done
+fi
+
+# Copy each top-level item under .claude-plugin/rules
+if [[ ! -d "$SOURCE_RULES" ]]; then
+  echo "Warning: rules folder not found at $SOURCE_RULES (skipping)" >&2
+else
+  mkdir -p "$TARGET_RULES"
+  for rule_item in "$SOURCE_RULES"/*; do
+    [[ -e "$rule_item" ]] || continue
+
+    rule_name="$(basename "$rule_item")"
+    rule_target="${TARGET_RULES}/${rule_name}"
+
+    echo "Copying rules/$rule_name..."
+
+    if [[ -e "$rule_target" ]]; then
+      if [[ -d "$rule_target" ]]; then
+        rm -rf "$rule_target"
+      else
+        rm -f "$rule_target"
+      fi
+    fi
+
+    cp -r "$rule_item" "$rule_target"
+    echo "  Copied $rule_item -> $rule_target"
+  done
+fi
 
 if [[ ! -f "$REFERENCE_FILE" ]]; then
   echo "Warning: Reference file not found at $REFERENCE_FILE" >&2
