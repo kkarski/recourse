@@ -1,7 +1,7 @@
 {
   "name": "spectr",
   "description": "A plugin to write better specifications",
-  "version": "1.0.0",
+  "version": "0.1.2",
   "author": {
     "name": "Krzysztof Karski"
   }

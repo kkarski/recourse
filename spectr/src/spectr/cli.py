@@ -26,7 +26,7 @@ from spectr import phase_ops
 from spectr import spec_ops
 from spectr import xmlio
 from spectr.discover import find_spec_html_upward
-from spectr.naming import DEFAULT_INIT_TITLE, spec_folder_name_from_title
+from spectr.naming import DEFAULT_INIT_TITLE, questions_companion_stem, spec_folder_name_from_title
 from spectr.user_config import resolve_role
 from spectr import uow_session
 from spectr.uow import SpecUnitOfWork, load_for_read
@@ -117,10 +117,6 @@ _REF_WITH_SID_HELP = (
     "Optional reference-link sid: any unique string. "
     "Omit to auto-allocate (ref- + 8 lowercase hex digits)."
 )
-_TEST_WITH_SID_HELP = (
-    "Optional test sid: any unique string. "
-    "Omit to auto-allocate (tst- + 8 hex digits)."
-)
 _TASK_WITH_SID_HELP = (
     "Optional task sid: any unique string. "
     "Omit to auto-allocate (tsk- + 8 hex digits)."
@@ -129,6 +125,10 @@ _TASK_PHASE_WITH_SID_HELP = (
     "When the plan has no phases yet, use this ph-… sid for the first phase. "
     "Ignored if phases already exist or when --ph is set."
 )
+_PH_ENTITY_HELP = (
+    "Delivery phase sid(s) (repeat for multiple). Stored as space-separated ``ph`` on the entity."
+)
+_CLEAR_PH_HELP = "Drop all phase assignments (``ph`` attribute) on this entity."
 
 
 def _sid_or_dom_id(
@@ -178,20 +178,49 @@ def _work(obj: dict) -> Path:
 
 
 def _questions_file_path(spec_path: Path) -> Path:
-    """Companion questions document path: ``{feature}_questions.html`` next to the spec."""
-    feature = spec_folder_name_from_title(spec_path.parent.name or DEFAULT_INIT_TITLE)
-    return spec_path.parent / f"{feature}_questions.html"
+    """Companion questions document path next to the spec.
+
+    ``stem`` comes from ``<stem>_spec.*`` when the filename matches that pattern; otherwise
+    from the parent directory (same normalization as feature folder names).
+    """
+    resolved = spec_path.resolve()
+    stem = questions_companion_stem(resolved)
+    return resolved.parent / f"{stem}_questions.html"
 
 
 def _questions_work(obj: dict) -> Path:
-    """Q&A file path; lazily initialized as a copy of current working spec."""
+    """Q&A companion path for ``spectr qs``; created when missing or zero-byte.
+
+    Creates an empty questions document (``doc-kind="questions"``) with ``body @sid`` matching
+    the spec so change-set Q&A targets resolve. Threads are added by ``qs`` subcommands.
+    """
     spec_work = _work(obj)
-    qpath = _questions_file_path(Path(obj["spec_path"]))
-    if not qpath.exists():
+    canonical_spec = Path(obj["spec_path"]).resolve()
+    qpath = _questions_file_path(canonical_spec)
+
+    def _bootstrap_questions_file() -> None:
         qpath.parent.mkdir(parents=True, exist_ok=True)
-        qroot = xmlio.load_tree(spec_work)
-        qroot.set("doc-kind", "questions")
-        xmlio.write_tree(qpath, qroot)
+        snap = load_for_read(spec_work)
+        body_el = snap.find("body")
+        if body_el is None:
+            raise click.ClickException("spec has no <body> element")
+        body_sid = (body_el.get("sid") or "").strip()
+        if not body_sid:
+            raise click.ClickException("spec body has no sid")
+        try:
+            spec_ops.write_minimal_questions_doc(qpath, body_sid=body_sid)
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
+
+    if not qpath.is_file():
+        _bootstrap_questions_file()
+        return qpath
+    try:
+        is_empty = qpath.stat().st_size == 0
+    except OSError:
+        is_empty = True
+    if is_empty:
+        _bootstrap_questions_file()
     return qpath
 
 
@@ -203,8 +232,8 @@ def _questions_work(obj: dict) -> Path:
     type=click.Path(dir_okay=False, path_type=Path),
     default=_default_spec,
     help=(
-        "Path to the Spectr HTML specification (default name spec.html; env: SPECTR_SPEC). "
-        "If omitted, search upward from cwd for spec.html."
+        "Path to the Spectr software specification file (env: SPECTR_SPEC). "
+        "If omitted, discover the spec file by walking upward from cwd."
     ),
 )
 @click.option(
@@ -220,16 +249,16 @@ def _questions_work(obj: dict) -> Path:
 )
 @click.pass_context
 def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
-    """Spectr is a structured HTML specification for a software change set; this command loads ``spec.html`` (via ``--spec``) and runs subcommands that edit or export requirements entities.
+    """Spectr manages a structured software specification for a change set; this command loads the spec (via ``--spec``) and runs subcommands that edit or export requirements entities.
 
-    The specification is a single HTML document (see ``specs/spectr.xsd``): ``body``
-    carries the spec ``sid``; use cases, business rules, acceptance criteria, tests, Q&A, feedback,
+    The specification is a single document (see ``specs/spectr.xsd``): ``body``
+    carries the spec ``sid``; use cases, business rules, acceptance criteria, Q&A, feedback,
     and delivery plan live in typed ``div`` / ``p`` / ``ol`` / ``li`` elements. Entity
     ids are stored on ``sid`` (and unique ``id`` on each element). Auto-allocated ``sid`` values use
     ``prefix`` + hyphen + UUID segment (see ``spectr.ids``); user ``--with-sid`` values need only
     be unique among other entity sids. Assigned sids stay stable—only
     missing sids are filled on load (``spectr.uow.ensure_missing_entity_sids``). Updates do not
-    change entity ``sid`` (set at ``add`` or via optional ``--with-sid`` on feature add, uc/ac/br/test,
+    change entity ``sid`` (set at ``add`` or via optional ``--with-sid`` on feature add, uc/ac/br,
     task, and ``qs ask``; ``task add`` also supports ``--phase-with-sid`` for the first phase).
 
     Markdown in text fields
@@ -245,20 +274,20 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
 
     Invocation
 
-      ``spectr --help`` · ``spectr --spec ./My_Feature/spec.html uc list``
+      ``spectr --help`` · ``spectr --version`` / ``spectr version`` · ``spectr --spec ./My_Feature/<spec-file> uc list``
 
       Change-set blurb and links: ``spectr spec read`` · ``spectr spec update -d '…'`` ·
       ``spectr spec ref add -u URL -l '…'``.
 
-      Discovery walks upward for ``spec.html`` unless ``--spec`` or ``SPECTR_SPEC`` is set.
+      Discovery walks upward for the default spec filename unless ``--spec`` or ``SPECTR_SPEC`` is set.
       Delivery plan: ``spectr task add -d '…'`` · ``spectr task list`` (optional ``--ph PHASE_SID``). Plan/phase markup is created when missing.
 
     Unit of work
 
       Each mutating subcommand runs one short transaction: clone → edit → renumber ``id`` → write.
 
-      **Session (several commands, one write to ``spec.html``):** run ``spectr uow begin`` (for the
-      same ``--spec``), then any mix of uc/ac/def/test/task/qs/feedback commands; they edit a draft
+      **Session (several commands, one write to the spec file):** run ``spectr uow begin`` (for the
+      same ``--spec``), then any mix of uc/ac/def/task/qs/feedback commands; they edit a draft
       under ``<spec-dir>/.spectr/``. Run ``spectr uow commit`` to merge the draft into the real
       spec (with id renumbering) and clear the session, or ``spectr uow abort`` to discard the
       draft. ``spectr uow status`` shows whether a session is active.
@@ -287,6 +316,12 @@ def cli(ctx: click.Context, spec_path: Path, cli_role: str | None) -> None:
     ctx.obj["role"] = resolve_role(cli_role=cli_role)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
+
+
+@cli.command("version")
+def version_cmd() -> None:
+    """Print the Spectr CLI version (same output as ``spectr --version``)."""
+    click.echo(f"spectr, version {__version__}")
 
 
 # --- conf ---
@@ -377,7 +412,7 @@ def feature_cmd(ctx: click.Context) -> None:
 def feature_add_cmd(
     title: str, target: Path | None, desc: str, user_spec_sid: str | None
 ) -> None:
-    """Create feature directory, initialize ``{feature}_spec.html``/``{feature}_questions.html``, then chdir into it."""
+    """Create feature directory, initialize the feature spec and companion questions files, then chdir into it."""
     feature_title = (title or "").strip() or DEFAULT_INIT_TITLE
     feature_desc = (desc or "").strip() or "Describe the change set."
     if target is None:
@@ -397,9 +432,17 @@ def feature_add_cmd(
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     questions_path = _questions_file_path(spec_path)
-    qroot = xmlio.load_tree(spec_path)
-    qroot.set("doc-kind", "questions")
-    xmlio.write_tree(questions_path, qroot)
+    spec_root = load_for_read(spec_path)
+    body_el = spec_root.find("body")
+    if body_el is None:
+        raise click.ClickException("spec has no <body> element")
+    body_sid = (body_el.get("sid") or "").strip()
+    if not body_sid:
+        raise click.ClickException("spec body has no sid")
+    try:
+        spec_ops.write_minimal_questions_doc(questions_path, body_sid=body_sid)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
     os.chdir(target)
     click.echo(f"Created {spec_path}")
     click.echo(f"Created {questions_path}")
@@ -443,7 +486,7 @@ def spec_update_cmd(ctx: click.Context, desc: str) -> None:
 @spec_cmd.group("ref")
 @click.pass_context
 def spec_ref_cmd(ctx: click.Context) -> None:
-    """External links for the change set (HTML ``ul type=references`` → ``li`` → ``a href`` under ``body``).
+    """External links for the change set (``ul type=references`` → ``li`` → ``a href`` under ``body``).
 
     Subcommands: ``add``, ``list``, ``read``, ``delete``."""
     if ctx.invoked_subcommand is None:
@@ -571,7 +614,7 @@ def export_markdown(ctx: click.Context) -> None:
 @export.command("json")
 @click.pass_context
 def export_json(ctx: click.Context) -> None:
-    """Emit the spec tree as pretty-printed JSON for scripts, tests, and integrations."""
+    """Emit the spec tree as pretty-printed JSON for scripts and integrations."""
     obj = ctx.obj
     root = _read_spec(_work(obj))
     click.echo(spec_ops.spec_to_json(root), nl=False)
@@ -631,6 +674,13 @@ def uc(ctx: click.Context) -> None:
     help="For uc-…: " + _WITH_SID_ADD_HELP,
 )
 @click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP,
+)
+@click.option(
     "--porcelain",
     "-p",
     is_flag=True,
@@ -646,6 +696,7 @@ def uc_add(
     precond: tuple[str, ...],
     postcond: tuple[str, ...],
     user_uc_sid: str | None,
+    phase_sids: tuple[str, ...],
     porcelain: bool,
 ) -> None:
     """Insert a new use case (narrative plus required trigger, actors, preconditions, postconditions)."""
@@ -662,6 +713,7 @@ def uc_add(
                 actors=tuple(x.strip() for x in actors if str(x).strip()),
                 preconditions=tuple(x.strip() for x in precond if str(x).strip()),
                 postconditions=tuple(x.strip() for x in postcond if str(x).strip()),
+                phases=tuple(x.strip() for x in phase_sids if str(x).strip()),
             )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
@@ -708,6 +760,8 @@ def uc_read_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None) -
         click.echo(f"precond:\t{pr}")
     for po in row.postconditions:
         click.echo(f"postcond:\t{po}")
+    if row.phases:
+        click.echo(f"ph:\t{' '.join(row.phases)}")
 
 
 @uc.command("update")
@@ -737,6 +791,14 @@ def uc_read_cmd(ctx: click.Context, uc_sid: str | None, uc_dom_id: str | None) -
     default=(),
     help="Postcondition (repeat). Omit --postcond entirely to clear all.",
 )
+@click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP + " Omit entirely to leave phases unchanged.",
+)
+@click.option("--clear-ph", "clear_ph", is_flag=True, help=_CLEAR_PH_HELP)
 @click.pass_context
 def uc_update_cmd(
     ctx: click.Context,
@@ -748,6 +810,8 @@ def uc_update_cmd(
     actors: tuple[str, ...],
     precond: tuple[str, ...],
     postcond: tuple[str, ...],
+    phase_sids: tuple[str, ...],
+    clear_ph: bool,
 ) -> None:
     """Replace the whole use-case body: every option not passed on the CLI is cleared (atomic update).
 
@@ -781,6 +845,11 @@ def uc_update_cmd(
             if _cli_explicit(ctx, "postcond")
             else ()
         )
+        phase_payload: tuple[str, ...] | None = None
+        if clear_ph:
+            phase_payload = ()
+        elif _cli_explicit(ctx, "phase_sids"):
+            phase_payload = tuple(x.strip() for x in phase_sids if str(x).strip())
         try:
             spec_ops.uc_update(
                 root,
@@ -791,6 +860,7 @@ def uc_update_cmd(
                 actors=act,
                 preconditions=pres,
                 postconditions=posts,
+                phases=phase_payload,
             )
         except ValueError as e:
             raise click.ClickException(str(e)) from e
@@ -901,6 +971,13 @@ def br(ctx: click.Context) -> None:
     default=(),
     help="For br-…: " + _WITH_SID_ADD_HELP,
 )
+@click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP,
+)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.pass_context
 def br_add_cmd(
@@ -910,6 +987,7 @@ def br_add_cmd(
     uc_node_id: str | None,
     pipe_uc: bool,
     with_sid: tuple[str, ...],
+    phase_sids: tuple[str, ...],
     porcelain: bool,
 ) -> None:
     """Add business-rule paragraphs; ``--uc`` or stdin supplies the parent use-case ``sid`` (omit for body-level rules)."""
@@ -943,7 +1021,11 @@ def br_add_cmd(
         with _mutating(path) as root:
             for text, ws in zip_longest(desc, with_sid, fillvalue=None):
                 eid = spec_ops.br_add(
-                    root, text, under_uc_id=parent_uc, user_sid=(ws.strip() if ws else None)
+                    root,
+                    text,
+                    under_uc_id=parent_uc,
+                    user_sid=(ws.strip() if ws else None),
+                    phases=tuple(x.strip() for x in phase_sids if str(x).strip()),
                 )
                 new_ids.append(eid)
     except ValueError as e:
@@ -1013,6 +1095,14 @@ def br_read_cmd(ctx: click.Context, br_sid: str | None, br_dom_id: str | None) -
     default=None,
     help='Set or clear ``deprecated="true"``; omit to leave unchanged.',
 )
+@click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP + " Omit entirely to leave phases unchanged.",
+)
+@click.option("--clear-ph", "clear_ph", is_flag=True, help=_CLEAR_PH_HELP)
 @click.pass_context
 def br_update_cmd(
     ctx: click.Context,
@@ -1020,11 +1110,14 @@ def br_update_cmd(
     br_dom_id: str | None,
     desc: str | None,
     deprecated_flag: bool | None,
+    phase_sids: tuple[str, ...],
+    clear_ph: bool,
 ) -> None:
     """Replace business rule text and/or deprecated flag (entity ``sid`` is fixed at add time)."""
-    if desc is None and deprecated_flag is None:
+    has_ph = clear_ph or _cli_explicit(ctx, "phase_sids")
+    if desc is None and deprecated_flag is None and not has_ph:
         raise click.ClickException(
-            "Provide --desc and/or --deprecated/--not-deprecated."
+            "Provide --desc, --deprecated/--not-deprecated, --ph, and/or --clear-ph."
         )
     obj = ctx.obj
     path = _work(obj)
@@ -1037,8 +1130,17 @@ def br_update_cmd(
                 label="business rule",
                 from_dom=dom_resolve.br_sid_from_dom_id,
             )
+            ph_payload: tuple[str, ...] | None = None
+            if clear_ph:
+                ph_payload = ()
+            elif _cli_explicit(ctx, "phase_sids"):
+                ph_payload = tuple(x.strip() for x in phase_sids if str(x).strip())
             out = spec_ops.br_update(
-                root, br_id, desc, deprecated=deprecated_flag
+                root,
+                br_id,
+                desc,
+                deprecated=deprecated_flag,
+                phases=ph_payload,
             )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
@@ -1077,7 +1179,7 @@ _DEF_WITH_SID_HELP = (
 )
 _DEF_BODY_HELP = (
     "Definition body (Markdown). Synonyms: ``--desc``. Separate from ``--term`` (short label stored as "
-    "``<span type=term>`` in the HTML). Max 500 chars; one term/definition per row."
+    "``<span type=term>`` in the document). Max 500 chars; one term/definition per row."
 )
 
 
@@ -1110,7 +1212,7 @@ def def_cli(ctx: click.Context):
     "--term",
     "-t",
     default=None,
-    help='Optional glossary term label (e.g. Invited); max 100 chars; rendered as <span type="term"> in the HTML.',
+    help='Optional glossary term label (e.g. Invited); max 100 chars; rendered as <span type="term"> in the document.',
 )
 @click.option("--with-sid", "user_sid", default=None, help=_DEF_WITH_SID_HELP)
 @click.option("--porcelain", "-p", is_flag=True)
@@ -1297,7 +1399,7 @@ def def_delete_cmd(
 @cli.group(invoke_without_command=True)
 @click.pass_context
 def ac(ctx: click.Context) -> None:
-    """Acceptance criteria are verifiable “done” statements; they anchor tests and settle whether behavior meets intent.
+    """Acceptance criteria are verifiable “done” statements; they settle whether behavior meets intent.
 
     List, add, read, update, and delete AC nodes (top-level or under a use case)."""
     if ctx.invoked_subcommand is None:
@@ -1340,6 +1442,13 @@ def ac(ctx: click.Context) -> None:
     default=(),
     help="For ac-…: " + _WITH_SID_ADD_HELP,
 )
+@click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP,
+)
 @click.option("--porcelain", "-p", is_flag=True)
 @click.pass_context
 def ac_add_cmd(
@@ -1349,6 +1458,7 @@ def ac_add_cmd(
     uc_node_id: str | None,
     pipe_uc: bool,
     with_sid: tuple[str, ...],
+    phase_sids: tuple[str, ...],
     porcelain: bool,
 ) -> None:
     """Add acceptance-criteria paragraphs; ``--uc`` or stdin supplies the parent use-case ``sid`` (omit for body-level AC)."""
@@ -1383,7 +1493,11 @@ def ac_add_cmd(
         with _mutating(path) as root:
             for text, ws in zip_longest(desc, with_sid, fillvalue=None):
                 eid = spec_ops.ac_add(
-                    root, text, under_uc_id=parent_uc, user_sid=(ws.strip() if ws else None)
+                    root,
+                    text,
+                    under_uc_id=parent_uc,
+                    user_sid=(ws.strip() if ws else None),
+                    phases=tuple(x.strip() for x in phase_sids if str(x).strip()),
                 )
                 new_ids.append(eid)
     except ValueError as e:
@@ -1453,6 +1567,14 @@ def ac_read_cmd(ctx: click.Context, ac_sid: str | None, ac_dom_id: str | None) -
     default=None,
     help='Set or clear ``deprecated="true"``; omit to leave unchanged.',
 )
+@click.option(
+    "--ph",
+    "phase_sids",
+    multiple=True,
+    default=(),
+    help=_PH_ENTITY_HELP + " Omit entirely to leave phases unchanged.",
+)
+@click.option("--clear-ph", "clear_ph", is_flag=True, help=_CLEAR_PH_HELP)
 @click.pass_context
 def ac_update_cmd(
     ctx: click.Context,
@@ -1460,11 +1582,14 @@ def ac_update_cmd(
     ac_dom_id: str | None,
     desc: str | None,
     deprecated_flag: bool | None,
+    phase_sids: tuple[str, ...],
+    clear_ph: bool,
 ) -> None:
     """Replace acceptance-criterion text and/or deprecated flag (entity ``sid`` is fixed at add time)."""
-    if desc is None and deprecated_flag is None:
+    has_ph = clear_ph or _cli_explicit(ctx, "phase_sids")
+    if desc is None and deprecated_flag is None and not has_ph:
         raise click.ClickException(
-            "Provide --desc and/or --deprecated/--not-deprecated."
+            "Provide --desc, --deprecated/--not-deprecated, --ph, and/or --clear-ph."
         )
     obj = ctx.obj
     path = _work(obj)
@@ -1478,8 +1603,17 @@ def ac_update_cmd(
                 label="acceptance criterion",
                 from_dom=dom_resolve.ac_sid_from_dom_id,
             )
+            ph_payload: tuple[str, ...] | None = None
+            if clear_ph:
+                ph_payload = ()
+            elif _cli_explicit(ctx, "phase_sids"):
+                ph_payload = tuple(x.strip() for x in phase_sids if str(x).strip())
             out = spec_ops.ac_update(
-                root, ac_id, desc, deprecated=deprecated_flag
+                root,
+                ac_id,
+                desc,
+                deprecated=deprecated_flag,
+                phases=ph_payload,
             )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
@@ -1509,132 +1643,6 @@ def ac_delete_cmd(ctx: click.Context, ac_sid: str | None, ac_dom_id: str | None)
     click.echo(f"deleted {ac_id}")
 
 
-# --- test ---
-
-
-@cli.group(invoke_without_command=True)
-@click.pass_context
-def test(ctx: click.Context) -> None:
-    """Tests are concrete validation steps linked to an AC; they describe how to prove a criterion in practice.
-
-    Add, read, update, and delete test nodes under the body ``tests`` block."""
-    if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
-        return
-
-
-@test.command("add")
-@click.option("--ac", "ac_sid", default=None, help="Acceptance criterion sid.")
-@click.option("--ac-id", "ac_node_id", default=None, help="Acceptance criterion DOM node id.")
-@click.option("--desc", "-d", required=True, help=_MARKDOWN_TEXT_HELP)
-@click.option("--with-sid", "user_test_sid", default=None, help=_TEST_WITH_SID_HELP)
-@click.option("--porcelain", "-p", is_flag=True)
-@click.pass_context
-def test_add_cmd(
-    ctx: click.Context,
-    ac_sid: str | None,
-    ac_node_id: str | None,
-    desc: str,
-    user_test_sid: str | None,
-    porcelain: bool,
-) -> None:
-    """Add a ``p type=test`` under the body tests block; reference the AC by ``--ac`` or ``--ac-id``."""
-    obj = ctx.obj
-    path = _work(obj)
-    has_ac = ac_sid is not None and str(ac_sid).strip() != ""
-    has_nid = ac_node_id is not None and str(ac_node_id).strip() != ""
-    if has_ac and has_nid:
-        raise click.ClickException("Use only one of --ac or --ac-id.")
-    if not has_ac and not has_nid:
-        raise click.ClickException("Required: --ac or --ac-id.")
-    try:
-        with _mutating(path) as root:
-            if has_nid:
-                ac_id = dom_resolve.ac_sid_from_dom_id(root, str(ac_node_id).strip())
-                if not ac_id:
-                    raise click.ClickException(f"No acceptance criterion matches node id {ac_node_id!r}.")
-            else:
-                ac_id = str(ac_sid).strip()
-            ut = (user_test_sid or "").strip() or None
-            eid = spec_ops.test_add(root, ac_id, desc, user_sid=ut)
-    except ValueError as e:
-        raise click.ClickException(str(e)) from e
-    _emit(porcelain, ids.PREFIX_TEST, eid)
-    if not porcelain:
-        click.echo(f"added test {eid}")
-
-
-@test.command("read")
-@click.option("--sid", "-s", "test_sid", default=None, help=_SID_HELP)
-@click.option("--id", "test_dom_id", default=None, help=_DOM_ID_HELP)
-@click.pass_context
-def test_read_cmd(ctx: click.Context, test_sid: str | None, test_dom_id: str | None) -> None:
-    """Show ``ref_id`` (AC sid) and description for one test."""
-    obj = ctx.obj
-    root = _read_spec(_work(obj))
-    test_id = _sid_or_dom_id(
-        root,
-        test_sid,
-        test_dom_id,
-        label="test",
-        from_dom=dom_resolve.test_sid_from_dom_id,
-    )
-    row = spec_ops.test_read(root, test_id)
-    if row is None:
-        raise click.ClickException(f"unknown test: {test_id}")
-    ref, de = row
-    click.echo(f"ref_id:\t{ref}")
-    click.echo(f"desc:\t{de}")
-
-
-@test.command("update")
-@click.option("--sid", "-s", "test_sid", default=None, help=_SID_HELP)
-@click.option("--id", "test_dom_id", default=None, help=_DOM_ID_HELP)
-@click.option("--desc", "-d", required=True, help=_MARKDOWN_TEXT_HELP)
-@click.pass_context
-def test_update_cmd(
-    ctx: click.Context,
-    test_sid: str | None,
-    test_dom_id: str | None,
-    desc: str,
-) -> None:
-    """Update the description of an existing test."""
-    obj = ctx.obj
-    path = _work(obj)
-    with _mutating(path) as root:
-        test_id = _sid_or_dom_id(
-            root,
-            test_sid,
-            test_dom_id,
-            label="test",
-            from_dom=dom_resolve.test_sid_from_dom_id,
-        )
-        if not spec_ops.test_update(root, test_id, desc):
-            raise click.ClickException(f"unknown test: {test_id}")
-    click.echo(f"updated {test_id}")
-
-
-@test.command("delete")
-@click.option("--sid", "-s", "test_sid", default=None, help=_SID_HELP)
-@click.option("--id", "test_dom_id", default=None, help=_DOM_ID_HELP)
-@click.pass_context
-def test_delete_cmd(ctx: click.Context, test_sid: str | None, test_dom_id: str | None) -> None:
-    """Remove a test from the specification."""
-    obj = ctx.obj
-    path = _work(obj)
-    with _mutating(path) as root:
-        test_id = _sid_or_dom_id(
-            root,
-            test_sid,
-            test_dom_id,
-            label="test",
-            from_dom=dom_resolve.test_sid_from_dom_id,
-        )
-        if not spec_ops.test_delete(root, test_id):
-            raise click.ClickException(f"unknown test: {test_id}")
-    click.echo(f"deleted {test_id}")
-
-
 # --- qs ---
 
 
@@ -1643,7 +1651,8 @@ def test_delete_cmd(ctx: click.Context, test_sid: str | None, test_dom_id: str |
 def qs(ctx: click.Context) -> None:
     """Q&A threads record questions and answers on spec entities so ambiguity is resolved with auditable history.
 
-    Ask, answer, list, deprecate, and delete Q&A items (author roles apply)."""
+    Ask, answer, list, deprecate, and delete Q&A items (author roles apply). The companion
+    questions document next to the spec is created when it is missing or empty (zero bytes)."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
         return
@@ -1794,7 +1803,8 @@ def qs_answer_cmd(
 def qs_list_cmd(ctx: click.Context, include_deprecated: bool) -> None:
     """List questions: thread sid, context ref (e.g. parent uc sid), author, preview."""
     obj = ctx.obj
-    root = _read_spec(_questions_work(obj))
+    qpath = _questions_work(obj)
+    root = _read_spec(qpath)
     for qid, ref, auth, prev in spec_ops.qs_list(
         root, include_deprecated=include_deprecated
     ):
@@ -2067,13 +2077,42 @@ def task_add_delivery_cmd(
     )
 
 
+# --- ph (requirements ↔ delivery phases) ---
+
+
+@cli.group("ph", invoke_without_command=True)
+@click.pass_context
+def ph_cli(ctx: click.Context) -> None:
+    """Requirements (UC, BR, AC) may list phase sids in optional ``ph``; list them per phase here."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@ph_cli.command("list")
+@click.argument("phase_sid")
+@click.pass_context
+def ph_list_cmd(ctx: click.Context, phase_sid: str) -> None:
+    """Print UC/BR/AC rows whose ``ph`` attribute includes *phase_sid* (tab: kind, sid, scope, preview)."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    want = (phase_sid or "").strip()
+    if not want:
+        raise click.ClickException("phase_sid must be non-empty")
+    rows = spec_ops.requirements_list_for_phase(root, want)
+    if not rows:
+        click.echo(f"(no requirements for phase {want!r})")
+        return
+    for kind, sid, scope, prev in rows:
+        click.echo(f"{kind}\t{sid}\t{scope}\t{prev}")
+
+
 # --- uow (multi-command session) ---
 
 
 @cli.group("uow", invoke_without_command=True)
 @click.pass_context
 def uow_group(ctx: click.Context) -> None:
-    """A unit of work is a short-lived draft of the spec: batch many CLI edits, then commit once to ``spec.html``.
+    """A unit of work is a short-lived draft of the spec: batch many CLI edits, then commit once to the spec file.
 
     ``begin`` → mutating subcommands (draft) → ``commit`` or ``abort``; ``status`` shows session state."""
     if ctx.invoked_subcommand is None:
@@ -2083,7 +2122,7 @@ def uow_group(ctx: click.Context) -> None:
 @uow_group.command("begin")
 @click.pass_context
 def uow_begin_cmd(ctx: click.Context) -> None:
-    """Start a session: copy the spec to ``.spectr/uow-draft.html``; later commands edit that draft."""
+    """Start a session: copy the spec to a draft under ``.spectr/``; later commands edit that draft."""
     obj = ctx.obj
     canon = Path(obj["spec_path"]).resolve()
     try:
@@ -2154,7 +2193,7 @@ def uow_status_cmd(ctx: click.Context) -> None:
 def serve_cmd(bind_host: str, port: int) -> None:
     """Serve files from the current working directory over HTTP.
 
-    Spectr HTML (``spec.html`` and ``*_spec.html``) opens in a wrapper page with an iframe;
+    Spectr specification documents open in a wrapper page with an iframe;
     chrome CSS/JS lives on the wrapper; typography CSS is applied inside the iframe.
     Append ``?spectr-raw=1`` to load the spec document alone (no wrapper)."""
     if not (1 <= port <= 65535):

@@ -22,7 +22,7 @@ description: Use when the user asks for a product specification, PRD, requiremen
 ---
 
 1. You MUST manage structured requirements with the Spectr CLI.
-2. You MUST read and follow `references/spectr-cli-for-pm.md` for every create/update/read/export operation.
+2. You MUST read and follow `references/spectr-cli-for-pm.md` for every create/update/read operation.
 3. You MUST NOT duplicate Spectr CLI or data model instructions in this skill.
 
 The PM role has **two concerns** that must stay distinct even though they belong to the same role:
@@ -155,7 +155,7 @@ If a plan, prior spec, or design doc exists (e.g. `.cursor/plans/*.plan.md`, an 
 
 - You MUST enter Phase 2 with the active Spectr spec already drafted incrementally during Phase 1 via **`references/spectr-cli-for-pm.md`**.
 
-1. Review for completeness using **export** / **list** patterns from **`references/spectr-cli-for-pm.md`** only
+1. Review for completeness using **list** / **read** patterns from **`references/spectr-cli-for-pm.md`** only
 2. Fill any gaps with further edits per **`references/spectr-cli-for-pm.md`** only
 3. Verify every answer in `questions.md` is reflected in the spec
 4. Add any missing cross-references between sections

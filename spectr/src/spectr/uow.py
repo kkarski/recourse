@@ -112,10 +112,6 @@ def ensure_missing_entity_sids(root: etree._Element) -> bool:
         if el.get("type") == "acceptance-criteria":
             fill_if_missing(el, ids.PREFIX_AC)
 
-    for el in root.iter("p"):
-        if el.get("type") == "test":
-            fill_if_missing(el, ids.PREFIX_TEST)
-
     for el in root.iter("div"):
         if el.get("type") == "use-case":
             fill_if_missing(el, ids.PREFIX_UC)

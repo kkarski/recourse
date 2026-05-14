@@ -31,6 +31,13 @@ class TestCliFeatureAdd(unittest.TestCase):
             qroot = load_for_read(questions_path)
             self.assertEqual((sroot.get("doc-kind") or "").strip(), "spec")
             self.assertEqual((qroot.get("doc-kind") or "").strip(), "questions")
+            sb = sroot.find("body")
+            qb = qroot.find("body")
+            assert sb is not None and qb is not None
+            self.assertEqual(sb.get("sid"), qb.get("sid"))
+            self.assertIsNone(qroot.find("body/h1"))
+            self.assertIsNone(qroot.find("body/p[@type='desc']"))
+            self.assertEqual(list(qb), [])
             self.assertEqual(sroot.findall(".//p[@type='question']"), [])
             self.assertEqual(qroot.findall(".//p[@type='question']"), [])
 

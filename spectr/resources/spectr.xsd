@@ -19,7 +19,7 @@
       Entity @sid values are stable once assigned (Spectr does not rewrite existing sids on load).
       Optional ``deprecated`` on business-rule / acceptance-criterion paragraphs hides them from CLI lists unless ``--include-deprecated``.
 
-      New sids use a prefix (spec, uc, br, ac, tst, q, ph, tsk, fb) + hyphen + 8 lowercase hex digits
+      New sids use a prefix (spec, uc, br, ac, q, ph, tsk, fb) + hyphen + 8 lowercase hex digits
       (first UUID segment). Blank/missing @sid on known entities is filled when the spec is loaded.
 
       Intended body block order (enforced on load, not by XSD alone):
@@ -66,7 +66,6 @@
       <xs:enumeration value="use-case"/>
       <xs:enumeration value="business-rules"/>
       <xs:enumeration value="acceptance-criteria"/>
-      <xs:enumeration value="tests"/>
       <xs:enumeration value="feedback"/>
       <xs:enumeration value="definitions"/>
       <xs:enumeration value="plan"/>
@@ -80,7 +79,6 @@
       <xs:enumeration value="business-rule"/>
       <xs:enumeration value="acceptance-criteria"/>
       <xs:enumeration value="feedback"/>
-      <xs:enumeration value="test"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -176,6 +174,11 @@
         <xs:attribute name="deprecated" type="xs:boolean" use="optional"/>
         <xs:attribute name="section" type="xs:string" use="optional"/>
         <xs:attribute name="term" type="xs:string" use="optional"/>
+        <xs:attribute name="ph" type="xs:string" use="optional">
+          <xs:annotation>
+            <xs:documentation>Optional space-separated delivery phase sids (``ph-…``) on BR/AC paragraphs.</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -225,6 +228,11 @@
     <xs:attribute name="type" type="DivTypeEnum" use="required"/>
     <xs:attribute name="sid" type="SpectrId" use="optional"/>
     <xs:attribute name="ts" type="IsoDateTimeOrEmpty" use="optional"/>
+    <xs:attribute name="ph" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation>Optional space-separated phase sids on ``div type=use-case``.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="HeadType">

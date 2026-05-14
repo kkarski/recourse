@@ -27,7 +27,7 @@ class TestCanonicalSid(unittest.TestCase):
     def test_is_canonical_sid(self) -> None:
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_UC, "uc-a1b2c3d4"))
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_Q, "q-00000000"))
-        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_TEST, "tst-deadbeef"))
+        self.assertTrue(ids.is_canonical_sid(ids.PREFIX_TASK, "tsk-deadbeef"))
         self.assertTrue(ids.is_canonical_sid(ids.PREFIX_BR, "br-cafebabe"))
         self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "uc-short"))
         self.assertFalse(ids.is_canonical_sid(ids.PREFIX_UC, "wrong-a1b2c3d4"))

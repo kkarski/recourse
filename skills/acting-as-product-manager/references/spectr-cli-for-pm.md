@@ -5,7 +5,7 @@ Use this guide for PM-facing Spectr operations only. It intentionally omits engi
 ## Core Rules
 
 1. You MUST use Spectr CLI (or `python -m spectr`) for structured spec work.
-2. You MUST read and inspect via CLI output (`export`, `list`, `read`), not raw HTML.
+2. You MUST read and inspect via CLI output (`list`, `read`, and related commands below) or a team-maintained Markdown file (e.g. `specs/{feature}/{feature}_spec.md`), not by opening the on-disk spec source file directly. Follow **`using-spectr`** for read surfaces and conventions.
 3. You MUST prefer deprecation over deletion for obsolete requirements.
 4. You MUST batch multi-step edits with `uow` when making topic-level updates.
 
@@ -25,13 +25,15 @@ spectr spec read
 Use when you need a reliable view for elicitation, review, reconciliation, or summary.
 
 ```bash
-spectr export markdown
+spectr spec read
 spectr def list
 spectr uc list
 spectr br list
 spectr ac list
 spectr qs list
 ```
+
+Use targeted `spectr <group> read -s …` (or `--id …`) for single-entity inspection per **`using-spectr`**. When the team keeps a companion **`specs/{feature}/{feature}_spec.md`**, you may use it alongside CLI reads.
 
 ### 3) Capture Scope Narrative
 

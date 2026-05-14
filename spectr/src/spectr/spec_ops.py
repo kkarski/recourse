@@ -30,7 +30,6 @@ _BODY_BLOCK_ORDER = (
     "use-case",
     "business-rules",
     "acceptance-criteria",
-    "tests",
     "questions",
     "feedback",
     "plan",
@@ -102,6 +101,37 @@ def _apply_deprecated(el: etree._Element, deprecated: bool) -> None:
         el.attrib.pop("deprecated", None)
 
 
+def parse_ph_attr(el: etree._Element) -> tuple[str, ...]:
+    """Split optional ``ph`` (space-separated phase sids) into distinct tokens."""
+    raw = (el.get("ph") or "").strip()
+    if not raw:
+        return ()
+    out: list[str] = []
+    seen: set[str] = set()
+    for tok in raw.split():
+        t = tok.strip()
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return tuple(out)
+
+
+def set_ph_attr(el: etree._Element, phases: tuple[str, ...]) -> None:
+    """Set or clear ``ph`` on a use-case ``div`` or BR/AC ``p``."""
+    norm = tuple((p or "").strip() for p in phases if (p or "").strip())
+    if not norm:
+        el.attrib.pop("ph", None)
+    else:
+        el.set("ph", " ".join(norm))
+
+
+def element_has_phase(el: etree._Element, phase_sid: str) -> bool:
+    want = (phase_sid or "").strip()
+    if not want:
+        return False
+    return want in parse_ph_attr(el)
+
+
 class UcRead(NamedTuple):
     """Snapshot of use-case body fields (no ``sid`` on trigger / actors / pre / post nodes).
 
@@ -114,6 +144,7 @@ class UcRead(NamedTuple):
     actors: tuple[str, ...]
     preconditions: tuple[str, ...]
     postconditions: tuple[str, ...]
+    phases: tuple[str, ...]
 
 
 def _ancestor_use_case_div(el: etree._Element | None) -> etree._Element | None:
@@ -135,13 +166,15 @@ def _guard_br_ac_update(
     sid: str,
     desc: str | None,
     deprecated: bool | None,
+    *,
+    phases: tuple[str, ...] | None = None,
 ) -> None:
     uc = _ancestor_use_case_div(p)
     _assert_br_ac_under_uc_not_deprecated(uc)
     if element_is_deprecated(p):
         if desc is not None:
             raise ValueError(f"cannot update text of deprecated entity {sid}")
-        if deprecated is None:
+        if deprecated is None and phases is None:
             raise ValueError(
                 f"entity {sid} is deprecated; pass --not-deprecated or --deprecated explicitly"
             )
@@ -261,7 +294,6 @@ _PRUNABLE_SECTION_DIV_TYPES = frozenset(
         "definitions",
         "business-rules",
         "acceptance-criteria",
-        "tests",
         "questions",
         "feedback",
         "plan",
@@ -317,8 +349,6 @@ def _section_container_is_empty(div: etree._Element) -> bool:
             ch.tag == "p" and (ch.get("type") or "").strip() == "acceptance-criteria"
             for ch in div
         )
-    if bt == "tests":
-        return not any(ch.tag == "p" and (ch.get("type") or "").strip() == "test" for ch in div)
     if bt == "feedback":
         return not any(
             ch.tag == "p" and (ch.get("type") or "").strip() == "feedback" for ch in div
@@ -336,7 +366,7 @@ def _section_container_is_empty(div: etree._Element) -> bool:
 def prune_empty_section_containers_upward(
     root: etree._Element, start: etree._Element | None
 ) -> None:
-    """Remove empty section wrappers (definitions, business-rules, AC, tests, questions, feedback, plan).
+    """Remove empty section wrappers (definitions, business-rules, AC, questions, feedback, plan).
 
     After removing an entity paragraph, pass the removed node's parent so parents chain can collapse
     (e.g. last BR deleted → empty ``business-rules`` div removed → …).
@@ -561,13 +591,6 @@ def _find_br_p(root: etree._Element, br_sid: str) -> etree._Element | None:
     return None
 
 
-def _find_test_p(root: etree._Element, test_sid: str) -> etree._Element | None:
-    for el in root.iter("p"):
-        if el.get("type") == "test" and el.get("sid") == test_sid:
-            return el
-    return None
-
-
 def _question_thread_ref(question_p: etree._Element) -> str | None:
     cur: etree._Element | None = question_p
     while cur is not None:
@@ -623,6 +646,7 @@ def uc_add(
     actors: tuple[str, ...] = (),
     preconditions: tuple[str, ...] = (),
     postconditions: tuple[str, ...] = (),
+    phases: tuple[str, ...] = (),
 ) -> str:
     _assert_uc_structured_fields(
         trigger=trigger,
@@ -651,6 +675,7 @@ def uc_add(
         preconditions=preconditions,
         postconditions=postconditions,
     )
+    set_ph_attr(div, phases)
     _insert_new_use_case(body, div)
     ids.assert_entity_sid_singleton(root, uc_sid)
     return uc_sid
@@ -689,6 +714,7 @@ def uc_read(root: etree._Element, uc_id: str) -> UcRead | None:
         actors=_parse_uc_actors(uc),
         preconditions=_parse_uc_cond_list(uc, "preconditions"),
         postconditions=_parse_uc_cond_list(uc, "postconditions"),
+        phases=parse_ph_attr(uc),
     )
 
 
@@ -702,6 +728,7 @@ def uc_update(
     actors: tuple[str, ...] = (),
     preconditions: tuple[str, ...] = (),
     postconditions: tuple[str, ...] = (),
+    phases: tuple[str, ...] | None = None,
 ) -> None:
     _assert_uc_structured_fields(
         trigger=trigger,
@@ -733,6 +760,8 @@ def uc_update(
         preconditions=preconditions,
         postconditions=postconditions,
     )
+    if phases is not None:
+        set_ph_attr(uc, phases)
     uc.set("ts", ids.iso_now())
 
 
@@ -781,6 +810,7 @@ def ac_add(
     *,
     under_uc_id: str | None,
     user_sid: str | None = None,
+    phases: tuple[str, ...] = (),
 ) -> str:
     _validate_acceptance_criteria_text((desc or "").strip())
     body = _body(root)
@@ -794,6 +824,7 @@ def ac_add(
     pid = _alloc_id(existing)
     p = etree.Element("p", type="acceptance-criteria", id=pid, sid=ac_sid, ts=ts)
     set_text_content(p, desc)
+    set_ph_attr(p, phases)
     if under_uc_id:
         uc = _find_uc_div(body, under_uc_id)
         if uc is None:
@@ -860,19 +891,22 @@ def ac_update(
     desc: str | None = None,
     *,
     deprecated: bool | None = None,
+    phases: tuple[str, ...] | None = None,
 ) -> str | None:
     p = _find_ac_p(root, ac_id)
     if p is None:
         return None
-    if desc is None and deprecated is None:
+    if desc is None and deprecated is None and phases is None:
         return (p.get("sid") or "").strip() or None
-    _guard_br_ac_update(p, ac_id, desc, deprecated)
+    _guard_br_ac_update(p, ac_id, desc, deprecated, phases=phases)
     if desc is not None:
         _validate_acceptance_criteria_text((desc or "").strip())
         set_text_content(p, desc)
     if deprecated is not None:
         _apply_deprecated(p, deprecated)
-    if desc is not None or deprecated is not None:
+    if phases is not None:
+        set_ph_attr(p, phases)
+    if desc is not None or deprecated is not None or phases is not None:
         p.set("ts", ids.iso_now())
     return (p.get("sid") or "").strip() or None
 
@@ -898,6 +932,7 @@ def br_add(
     *,
     under_uc_id: str | None,
     user_sid: str | None = None,
+    phases: tuple[str, ...] = (),
 ) -> str:
     _validate_business_rule_text((desc or "").strip())
     body = _body(root)
@@ -911,6 +946,7 @@ def br_add(
     pid = _alloc_id(existing)
     p = etree.Element("p", type="business-rule", id=pid, sid=br_sid, ts=ts)
     set_text_content(p, desc)
+    set_ph_attr(p, phases)
     if under_uc_id:
         uc = _find_uc_div(body, under_uc_id)
         if uc is None:
@@ -977,19 +1013,22 @@ def br_update(
     desc: str | None = None,
     *,
     deprecated: bool | None = None,
+    phases: tuple[str, ...] | None = None,
 ) -> str | None:
     p = _find_br_p(root, br_id)
     if p is None:
         return None
-    if desc is None and deprecated is None:
+    if desc is None and deprecated is None and phases is None:
         return (p.get("sid") or "").strip() or None
-    _guard_br_ac_update(p, br_id, desc, deprecated)
+    _guard_br_ac_update(p, br_id, desc, deprecated, phases=phases)
     if desc is not None:
         _validate_business_rule_text((desc or "").strip())
         set_text_content(p, desc)
     if deprecated is not None:
         _apply_deprecated(p, deprecated)
-    if desc is not None or deprecated is not None:
+    if phases is not None:
+        set_ph_attr(p, phases)
+    if desc is not None or deprecated is not None or phases is not None:
         p.set("ts", ids.iso_now())
     return (p.get("sid") or "").strip() or None
 
@@ -1141,72 +1180,6 @@ def def_update(
 
 def def_delete(root: etree._Element, def_id: str) -> bool:
     p = _find_def_p(root, def_id)
-    if p is None:
-        return False
-    parent = p.getparent()
-    if parent is None:
-        return False
-    parent.remove(p)
-    prune_empty_section_containers_upward(root, parent)
-    return True
-
-
-# --- tests (body div type=tests; p type=test) ---
-
-
-def _ensure_body_tests_div(body: etree._Element) -> etree._Element:
-    return _ensure_body_block_div(body, "tests")
-
-
-def test_add(
-    root: etree._Element, ac_id: str, desc: str, *, user_sid: str | None = None
-) -> str:
-    if _find_ac_p(root, ac_id) is None:
-        raise ValueError(f"acceptance criterion not found: {ac_id}")
-    body = _body(root)
-    existing = ids.collect_xml_ids(root)
-    if user_sid is not None:
-        tst_sid = ids.require_unique_override_sid(user_sid, ids.collect_sids(root))
-    else:
-        tst_sid = ids.new_prefixed_id(ids.PREFIX_TEST, existing)
-    existing.add(tst_sid)
-    ts = ids.iso_now()
-    tid = _alloc_id(existing)
-    p = etree.Element(
-        "p",
-        type="test",
-        id=tid,
-        sid=tst_sid,
-        ref_id=ac_id,
-        ts=ts,
-    )
-    set_text_content(p, desc)
-    tdiv = _ensure_body_tests_div(body)
-    tdiv.append(p)
-    ids.assert_entity_sid_singleton(root, tst_sid)
-    return tst_sid
-
-
-def test_read(root: etree._Element, test_id: str) -> tuple[str | None, str | None] | None:
-    p = _find_test_p(root, test_id)
-    if p is None:
-        return None
-    ref = p.get("ref_id")
-    return ref, get_text_content(p)
-
-
-def test_update(root: etree._Element, test_id: str, desc: str | None) -> bool:
-    p = _find_test_p(root, test_id)
-    if p is None:
-        return False
-    if desc is not None:
-        set_text_content(p, desc)
-    p.set("ts", ids.iso_now())
-    return True
-
-
-def test_delete(root: etree._Element, test_id: str) -> bool:
-    p = _find_test_p(root, test_id)
     if p is None:
         return False
     parent = p.getparent()
@@ -1570,6 +1543,88 @@ def spec_ref_delete(root: etree._Element, ref_id: str) -> bool:
     return True
 
 
+# --- phase membership (requirements) ---
+
+
+def requirements_list_for_phase(
+    root: etree._Element, phase_sid: str
+) -> list[tuple[str, str, str, str]]:
+    """Use cases, BRs, and ACs whose ``ph`` attribute lists *phase_sid*.
+
+    Returns rows ``(kind, entity_sid, scope, preview)`` in document order (body blocks and nested
+    UC content). *kind* is ``uc``, ``br``, or ``ac``; *scope* matches ``br_list_flat`` /
+    ``ac_list_flat`` (``spec`` or ``uc:{sid}``).
+    """
+    want = (phase_sid or "").strip()
+    if not want:
+        return []
+    rows: list[tuple[str, str, str, str]] = []
+    body = _body(root)
+
+    def _uc_preview(uc_div: etree._Element) -> str:
+        h3 = uc_div.find("h3")
+        tit = get_text_content(h3).strip() if h3 is not None else ""
+        narr = _collect_narrative_text(uc_div)
+        base = tit or narr
+        return base[:120]
+
+    for child in body:
+        if child.tag != "div":
+            continue
+        bt = child.get("type")
+        if bt == "use-case":
+            if element_is_deprecated(child):
+                continue
+            uid = (child.get("sid") or "").strip()
+            if element_has_phase(child, want):
+                rows.append(("uc", uid, "spec", _uc_preview(child)))
+            for brd in child.findall("div"):
+                if brd.get("type") != "business-rules":
+                    continue
+                for br in brd.findall("p"):
+                    if br.get("type") != "business-rule":
+                        continue
+                    if element_is_deprecated(br):
+                        continue
+                    bsid = (br.get("sid") or "").strip()
+                    if element_has_phase(br, want):
+                        prev = get_text_content(br).strip()[:120]
+                        rows.append(("br", bsid, f"uc:{uid}", prev))
+            for acd in child.findall("div"):
+                if acd.get("type") != "acceptance-criteria":
+                    continue
+                for ac in acd.findall("p"):
+                    if ac.get("type") != "acceptance-criteria":
+                        continue
+                    if element_is_deprecated(ac):
+                        continue
+                    aid = (ac.get("sid") or "").strip()
+                    if element_has_phase(ac, want):
+                        prev = get_text_content(ac).strip()[:120]
+                        rows.append(("ac", aid, f"uc:{uid}", prev))
+        elif bt == "business-rules":
+            for br in child.findall("p"):
+                if br.get("type") != "business-rule":
+                    continue
+                if element_is_deprecated(br):
+                    continue
+                bsid = (br.get("sid") or "").strip()
+                if element_has_phase(br, want):
+                    prev = get_text_content(br).strip()[:120]
+                    rows.append(("br", bsid, "spec", prev))
+        elif bt == "acceptance-criteria":
+            for ac in child.findall("p"):
+                if ac.get("type") != "acceptance-criteria":
+                    continue
+                if element_is_deprecated(ac):
+                    continue
+                aid = (ac.get("sid") or "").strip()
+                if element_has_phase(ac, want):
+                    prev = get_text_content(ac).strip()[:120]
+                    rows.append(("ac", aid, "spec", prev))
+    return rows
+
+
 # --- export / init ---
 
 
@@ -1605,30 +1660,40 @@ def spec_to_markdown(root: etree._Element) -> str:
             lines.append(f"- **{sid}**{term_part} {prev}")
     lines.append("")
     lines.append("## Use cases")
-    for sid, tit, preview in uc_list(root):
-        lines.append(f"- **{sid}** {tit or ''} — {preview[:80]}")
+    for child in body:
+        if child.tag != "div" or child.get("type") != "use-case":
+            continue
+        if element_is_deprecated(child):
+            continue
+        sid = child.get("sid") or ""
+        h3 = child.find("h3")
+        tit = get_text_content(h3).strip() if h3 is not None else ""
+        preview = _collect_narrative_text(child)
+        ph_note = ""
+        ph_toks = parse_ph_attr(child)
+        if ph_toks:
+            ph_note = " · " + " ".join(f"`{p}`" for p in ph_toks)
+        lines.append(f"- **{sid}** {tit or ''} — {preview[:80]}{ph_note}")
     lines.append("")
     lines.append("## Business rules")
     for bid, scope, prev in br_list_flat(root, include_deprecated=False):
-        lines.append(f"- **{bid}** ({scope}) {prev[:100]}")
+        p_el = _find_br_p(root, bid)
+        ph_note = ""
+        if p_el is not None:
+            pt = parse_ph_attr(p_el)
+            if pt:
+                ph_note = " · " + " ".join(f"`{x}`" for x in pt)
+        lines.append(f"- **{bid}** ({scope}) {prev[:100]}{ph_note}")
     lines.append("")
     lines.append("## Acceptance criteria")
     for aid, scope, prev in ac_list_flat(root, include_deprecated=False):
-        lines.append(f"- **{aid}** ({scope}) {prev[:100]}")
-    lines.append("")
-    lines.append("## Tests")
-    tdiv = None
-    for ch in body:
-        if ch.tag == "div" and ch.get("type") == "tests":
-            tdiv = ch
-            break
-    if tdiv is not None:
-        for tp in tdiv.findall("p"):
-            if tp.get("type") == "test":
-                lines.append(
-                    f"- **{tp.get('sid')}** → `{tp.get('ref_id')}` "
-                    f"{get_text_content(tp).strip()[:80]}"
-                )
+        p_el = _find_ac_p(root, aid)
+        ph_note = ""
+        if p_el is not None:
+            pt = parse_ph_attr(p_el)
+            if pt:
+                ph_note = " · " + " ".join(f"`{x}`" for x in pt)
+        lines.append(f"- **{aid}** ({scope}) {prev[:100]}{ph_note}")
     lines.append("")
     lines.append("## Delivery plan")
     from spectr import phase_ops
@@ -1706,6 +1771,30 @@ def write_minimal_spec(
     set_text_content(h1, title)
     d = etree.SubElement(body, "p", type="desc", id=p_id)
     set_text_content(d, desc)
+
+    from spectr.uow import recompute_dom_ids
+
+    recompute_dom_ids(root)
+    write_tree(path, root)
+
+
+def write_minimal_questions_doc(
+    path: Path, *, body_sid: str, title: str = "Questions"
+) -> None:
+    """Write a new companion Q&A document: empty except root metadata and ``body @sid`` matching the spec.
+
+    Question threads are appended by ``spectr qs``; ``body @sid`` must match the spec body so
+    change-set–level Q&A targets resolve.
+    """
+    sid = (body_sid or "").strip()
+    if not sid:
+        raise ValueError("questions document requires a non-empty body sid (from the spec)")
+
+    root = etree.Element("html", **{"doc-kind": "questions"})
+    head = etree.SubElement(root, "head")
+    t_el = etree.SubElement(head, "title")
+    set_text_content(t_el, title)
+    etree.SubElement(root, "body", sid=sid)
 
     from spectr.uow import recompute_dom_ids
 

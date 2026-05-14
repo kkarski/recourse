@@ -71,15 +71,6 @@ def ref_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     return None
 
 
-def test_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
-    el = find_by_dom_id(root, node_id)
-    if el is None:
-        return None
-    if el.tag == "p" and el.get("type") == "test":
-        return el.get("sid")
-    return None
-
-
 def feedback_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     el = find_by_dom_id(root, node_id)
     if el is None:

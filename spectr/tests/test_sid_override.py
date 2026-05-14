@@ -160,7 +160,7 @@ class TestSidOverrides(unittest.TestCase):
                 )
             self.assertEqual(sid, "shared-token")
 
-    def test_ac_update_preserves_sid_and_test_ref_id(self) -> None:
+    def test_ac_update_preserves_sid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.html"
             spec_ops.write_minimal_spec(path, "T", "d")
@@ -171,7 +171,6 @@ class TestSidOverrides(unittest.TestCase):
                     under_uc_id=None,
                     user_sid="ac-11111111",
                 )
-                spec_ops.test_add(root, ac, "check", user_sid="tst-smoke-1")
                 out = spec_ops.ac_update(
                     root,
                     ac,
@@ -179,10 +178,9 @@ class TestSidOverrides(unittest.TestCase):
                 )
                 self.assertEqual(out, "ac-11111111")
             r = load_for_read(path)
-            tp = r.find('.//p[@type="test"]')
-            assert tp is not None
-            self.assertEqual(tp.get("ref_id"), "ac-11111111")
-            self.assertEqual(tp.get("sid"), "tst-smoke-1")
+            p = r.find('.//p[@type="acceptance-criteria"]')
+            assert p is not None
+            self.assertEqual(p.get("sid"), "ac-11111111")
 
     def test_write_minimal_spec_user_body_sid(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

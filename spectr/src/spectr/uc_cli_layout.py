@@ -20,7 +20,6 @@ UC_LOOSE_NARRATIVE_FORBIDDEN = frozenset(
         "question",
         "answer",
         "feedback",
-        "test",
         "desc",
     }
 )

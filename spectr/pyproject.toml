@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spectr"
-version = "0.1.1"
-description = "CLI for spec-driven feature specs: use cases, acceptance criteria, tests, delivery plan (phases/tasks), and cross-role Q&A (pm, architect, engineer, qa)"
+version = "0.1.2"
+description = "CLI for spec-driven feature specs: use cases, acceptance criteria, delivery plan (phases/tasks), and cross-role Q&A (pm, architect, engineer, qa)"
 requires-python = ">=3.10"
 dependencies = [
   "click>=8.1",

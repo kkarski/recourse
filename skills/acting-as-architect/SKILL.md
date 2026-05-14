@@ -28,7 +28,7 @@ These files are the source of truth. Read them when you need the detail; do not 
 - `references/ddd.md` — Domain-Driven Design: strategic design, tactical patterns (Entity, Value Object, Aggregate, Domain Event, Repository, Domain Service), context mapping, core-domain distillation, DDD glossary, architectural red flags.
 - `references/entity_state.md` — How to document entities, attributes, states, state transitions, and validation rules in specs (format, examples, checklists).
 - `references/business_process.md` — How to document business events, activity flow diagrams, and event sequence diagrams (Mermaid examples, checklists).
-- `../references/how_to_use_questions.md` — Mechanics of the `questions.md` cross-role communication log.
+- `references/how_to_use_questions.md` — Mechanics of the `questions.md` cross-role communication log (repo root; see `references/README.md`).
 
 ## The Architect Role Boundaries
 

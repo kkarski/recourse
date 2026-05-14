@@ -70,27 +70,22 @@ class TestBusinessRules(unittest.TestCase):
             ]
             self.assertEqual(ac_divs, [])
 
-    def test_delete_last_test_prunes_empty_tests_div(self) -> None:
+    def test_delete_last_feedback_prunes_empty_feedback_div(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "spec.html"
             spec_ops.write_minimal_spec(path, "T", "d")
             with SpecUnitOfWork.mutate(path) as root:
-                ac = spec_ops.ac_add(
-                    root,
-                    "Given an account, When the user logs in, Then the dashboard is shown.",
-                    under_uc_id=None,
-                )
-                tid = spec_ops.test_add(root, ac, "check")
-                spec_ops.test_delete(root, tid)
+                fid = spec_ops.feedback_add(root, "Reviewer note", author=None)
+                spec_ops.feedback_delete(root, fid)
             r = load_for_read(path)
             body = r.find("body")
             assert body is not None
-            tdivs = [
+            fdivs = [
                 ch
                 for ch in body
-                if ch.tag == "div" and ch.get("type") == "tests"
+                if ch.tag == "div" and ch.get("type") == "feedback"
             ]
-            self.assertEqual(tdivs, [])
+            self.assertEqual(fdivs, [])
 
     def test_delete_last_br_under_use_case_prunes_nested_business_rules_div(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,18 +1,18 @@
 ---
 name: using-spectr
-description: Spectr CLI workflows for software feature specs (use cases, ACs, tests, planning, Q&A). Use when creating or updating Spectr specs; summarizing or inspecting spec content; preferring deprecation over delete for obsolete requirements; refusing wrapper scripts; avoiding spec.html or rendered HTML as the primary read surface; batching structural edits with uow; porcelain piping between commands; Markdown bodies with code fences; author roles on qs or feedback. When authoring def/br/ac bodies, follow repository reference docs (RuleSpeak, rules vs ACs, terms)—see skill body; do not improvise vocabulary or policy layout.
+description: Spectr CLI workflows for software feature specs (use cases, ACs, planning, Q&A). Use when creating or updating Spectr specs; summarizing or inspecting spec content. Apply this skill with the Spectr CLI (`spectr` or `python -m spectr`); prefer deprecation over delete for obsolete requirements; refuse wrapper scripts; read via CLI (`list`, `read`, and related inspect commands in this skill) or a team-maintained Markdown `.md` file as the primary read surface—not the on-disk spec source; batch structural edits with uow; porcelain piping between commands; Markdown bodies with code fences; author roles on qs or feedback. When authoring def/br/ac bodies, follow repository reference docs (RuleSpeak, rules vs ACs, terms)—see skill body; do not improvise vocabulary or policy layout.
 ---
 
 # using-spectr
 
 ## Overview
 
-**Spectr** is a CLI for structured software specifications: use cases, acceptance criteria, business rules, tests, optional planning, Q&A, and feedback.
+**Spectr** is a CLI for structured software specifications: use cases, acceptance criteria, business rules, optional delivery planning, Q&A, and feedback.
 
 - You MUST use the CLI (`spectr` or `python -m spectr`) for spec edits.
 - You MUST run `spectr --help` and `spectr <group> --help` for flags and edge cases.
-- You MUST use `export`, `list`, and `read` as your primary read surfaces.
-- You MUST NOT treat `spec.html` or rendered HTML as the primary source for analysis.
+- You MUST use `list` and `read` (and group-specific reads such as `spec read`) as your primary read surfaces.
+- You MUST NOT treat the on-disk spec source file as the primary source for analysis; use CLI output or a team-maintained `.md` companion (e.g. under `specs/{feature}/`) when one exists (see **Reading via CLI** / **Quick Reference** below).
 - You MUST use one logical AC/BR/Q&A item per entity `sid`.
 - You MUST use one glossary term definition per `def` row.
 - You MUST expect auto-assigned `sid` values to use `{prefix}-` plus 8 lowercase hex digits.
@@ -53,7 +53,7 @@ Spectr defines structure, not policy quality. You MUST follow repository writing
 
 1. You MUST use `spectr <group> list` to enumerate entities; you MAY include `--include-deprecated` where supported.
 2. You MUST use `spectr <group> read --sid ...` or `--id ...` for single-entity inspection.
-3. You MUST remember that reads/exports resolve to the draft during `uow`.
+3. You MUST remember that CLI reads resolve to the draft during `uow`.
 
 ## Quick Reference
 
@@ -140,13 +140,11 @@ spectr uc add -t "AC-27: Legacy flow" -d "Kept for comparison." --with-sid AC-27
 - You MUST use `-s` / `--sid` (or `--id` where supported) for updates and deletes.
 - You MUST remember entity `sid` values are fixed at add time.
 - You MUST use `qs deprecate` for Q&A thread retirement.
-- You MUST use `test update` to change test body text (no test deprecate command).
 
 ```bash
 spectr ac update -s ac-schema.pk_required -d "Reject rows missing any required column, not only PK."
 spectr br update -s br-owner_edits_only -d "Editors must hold catalog-admin role." --deprecated
 spectr uc update -s uc-import-v3 -t "Import spreadsheet" -d "Covers CSV and XLSX upload."
-spectr test update -s tst-csv-roundtrip-ok -d "Export produces valid CSV per checklist."
 ```
 
 - You MUST delete only for mistaken additions, structural cleanup, or intentional purge.
@@ -156,11 +154,7 @@ spectr test update -s tst-csv-roundtrip-ok -d "Export produces valid CSV per che
 spectr ac delete -s ac-schema.pk_required
 spectr br delete -s br-owner_edits_only
 spectr uc delete -s import-13
-spectr test delete -s tst-csv-roundtrip-ok
 ```
-
-- You MAY set explicit test `sid` values on `test add`.
-- You MUST soft-retire tests by deprecating the parent AC or rewriting test content before deleting.
 
 ## Unit of work (`uow`)
 
@@ -168,9 +162,9 @@ You MUST use this sequence for batch changes that should persist together:
 
 1. You MUST run `spectr uow begin`.
 2. You MUST perform all mutations against the same spec target.
-3. You MAY inspect draft state with reads, exports, or `spectr uow status`.
+3. You MAY inspect draft state with CLI reads or `spectr uow status`.
 4. You MUST run `spectr uow commit` to persist changes, or `spectr uow abort` to discard.
-5. You MUST remember that reads and exports target the draft while `uow` is open.
+5. You MUST remember that CLI reads target the draft while `uow` is open.
 
 ```bash
 spectr uow begin
@@ -190,7 +184,7 @@ spectr uow commit
 
 ## Common Mistakes
 
-1. You MUST NOT hand-edit raw markup.
+1. You MUST NOT hand-edit the specification source; use the **Spectr CLI** and follow **`using-spectr`**.
 2. You MUST NOT apply role options to `uc`/`ac`; you MUST apply author/role metadata only to `qs` and `feedback`.
 3. You MUST NOT combine many ACs/BRs into one `--desc` blob; you MUST repeat `-d` or split commands.
 4. You MUST NOT combine multiple terms in one `def` row.

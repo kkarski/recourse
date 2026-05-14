@@ -241,6 +241,10 @@ def assert_valid_spec(root: etree._Element) -> None:
             )
         bt = ch.get("type")
         if bt is None or bt not in _BODY_BLOCK_ORDER:
+            if bt == "tests":
+                raise ValueError(
+                    'Spectr no longer supports <div type="tests">; remove that section from the specification.'
+                )
             raise ValueError(f"unknown or missing body div type={bt!r}")
         if kind == "spec" and bt == "questions":
             raise ValueError('spec document (doc-kind="spec") cannot contain <div type="questions">')
@@ -267,6 +271,10 @@ def assert_valid_spec(root: etree._Element) -> None:
     if kind == "spec":
         for p in root.iter("p"):
             t = (p.get("type") or "").strip()
+            if t == "test":
+                raise ValueError(
+                    'Spectr no longer supports <p type="test">; remove test markup from the specification.'
+                )
             if t in ("question", "answer"):
                 raise ValueError(
                     f'spec document (doc-kind="spec") cannot contain <p type="{t}">'

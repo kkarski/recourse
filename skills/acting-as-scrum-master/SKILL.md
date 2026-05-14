@@ -1,6 +1,6 @@
 ---
 name: acting-as-scrum-master
-description: Turns a finished product specification into phased architecture, design, testing, and implementation plans with traceability. Use when dividing a spec into delivery phases, prioritizing use cases and acceptance criteria, aligning architecture to a spec, or producing a phasing plan with UC/AC coverage. Assumes requirements live in Spectr at `specs/{feature}/{feature}_spec.html` (see `using-spectr`, `acting-as-product-manager`).
+description: Turns a finished product specification into phased architecture, design, testing, and implementation plans with traceability. Use when dividing a spec into delivery phases, prioritizing use cases and acceptance criteria, aligning architecture to a spec, or producing a phasing plan with UC/AC coverage. Assumes requirements are maintained with the Spectr CLI per `using-spectr` and read via CLI output or a companion `.md` file when the team maintains one (see `acting-as-product-manager` and `references/spectr-cli-for-pm.md`).
 disable-model-invocation: true
 ---
 
@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 ## Assumptions
 
-- The source spec is the Spectr file **`specs/{feature}/{feature}_spec.html`**. Read it via **`spectr export markdown`** per **`using-spectr`** (not raw HTML as the primary surface). It holds **use cases**, **acceptance criteria**, **business rules**, **definitions**, tests, Q&A, etc., as structured by **`acting-as-product-manager`** / **`using-spectr`** — do not assume a Markdown template checklist.
+- The source of truth is the Spectr specification edited with the **Spectr CLI** per **`using-spectr`**. Read it with **`spectr`** `list` / `read` (and related inspect commands from **`using-spectr`**), or use a companion **`specs/{feature}/{feature}_spec.md`** when the team maintains one—not by opening the on-disk spec source directly. It holds **use cases**, **acceptance criteria**, **business rules**, **definitions**, tests, Q&A, etc., as structured by **`acting-as-product-manager`** / **`using-spectr`** and **`references/spectr-cli-for-pm.md`** — do not assume a Markdown template checklist.
 - Phasing is **dependency-first**: a phase is valid only if every UC/AC it claims can be satisfied given prior phases, data model, and runtime behavior.
 
 ## Procedure
@@ -139,5 +139,5 @@ Optional: a **mermaid** phase chain diagram `P1 → P2 → …` when it clarifie
 
 ## Related artifacts
 
-- Product requirements: **`specs/{feature}/{feature}_spec.html`** — workflow in **`using-spectr`** and **`acting-as-product-manager`**
+- Product requirements: Spectr CLI per **`using-spectr`** and **`acting-as-product-manager`**; PM mechanics in **`references/spectr-cli-for-pm.md`**; optional readable companion **`specs/{feature}/{feature}_spec.md`** when the team maintains that artifact
 - Architecture document, migration notes, and questions/decision logs should be cited from the repo when present.
