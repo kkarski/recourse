@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: light dark;
+  --spectr-nav-width: min(14rem, 26vw);
 }
 
 body {
@@ -15,10 +16,37 @@ body {
   line-height: 1.55;
 }
 
+body.spectr-view-enhanced {
+  padding-right: calc(var(--spectr-nav-width) + 2rem);
+}
+
 h1,
 h2,
-h3 {
+h3,
+h4 {
   line-height: 1.25;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+}
+
+h2 {
+  margin: 2rem 0 0.65rem;
+  font-size: 1.35rem;
+}
+
+h3 {
+  margin: 1.35rem 0 0.45rem;
+  font-size: 1.1rem;
+}
+
+h4 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
 }
 
 pre,
@@ -37,4 +65,164 @@ pre {
 
 li {
   margin: 0.25rem 0;
+}
+
+/* --- Fixed document outline (built by view.js) --- */
+
+#spectr-doc-nav {
+  position: fixed;
+  top: 1rem;
+  right: clamp(0.5rem, 2vw, 1.25rem);
+  z-index: 10;
+  box-sizing: border-box;
+  width: var(--spectr-nav-width);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  border-radius: 8px;
+  background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+}
+
+.spectr-doc-nav-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, CanvasText 55%, Canvas 45%);
+}
+
+.spectr-doc-nav-list a {
+  display: block;
+  padding: 0.18rem 0 0.18rem 0.5rem;
+  text-decoration: none;
+  color: color-mix(in srgb, CanvasText 78%, Canvas 22%);
+  border-left: 2px solid transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spectr-doc-nav-list a:hover {
+  color: CanvasText;
+}
+
+.spectr-doc-nav-list a.active {
+  font-weight: 600;
+  color: CanvasText;
+  border-left-color: color-mix(in srgb, CanvasText 45%, transparent);
+}
+
+.spectr-doc-nav-list a.spectr-nav-h1 {
+  padding-left: 0;
+  margin-top: 0.15rem;
+}
+
+.spectr-doc-nav-list a.spectr-nav-h2 {
+  padding-left: 0.55rem;
+}
+
+.spectr-doc-nav-list a.spectr-nav-h3 {
+  padding-left: 1.1rem;
+  font-size: 0.74rem;
+}
+
+.spectr-doc-nav-list a.spectr-nav-h4 {
+  padding-left: 1.65rem;
+  font-size: 0.72rem;
+  opacity: 0.92;
+}
+
+/* --- Glossary terms: bold label, colon, definition --- */
+
+p[type="definition"] span[type="term"] {
+  font-weight: bold;
+}
+
+p[type="definition"] span[type="term"]::after {
+  content: ": ";
+}
+
+/* --- Entity ids (BR, AC) before content --- */
+
+p[type="business-rule"][sid]::before,
+p[type="acceptance-criteria"][sid]::before {
+  content: attr(sid) " ";
+  font-weight: bold;
+}
+
+/* --- Rendered Markdown (view.js + markdown-it) --- */
+
+.spectr-markdown > :first-child {
+  margin-top: 0;
+}
+
+.spectr-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.spectr-markdown p {
+  margin: 0.45rem 0;
+}
+
+.spectr-markdown ul,
+.spectr-markdown ol {
+  margin: 0.45rem 0;
+  padding-left: 1.5rem;
+}
+
+.spectr-markdown ul {
+  list-style: disc;
+}
+
+.spectr-markdown ol {
+  list-style: decimal;
+}
+
+.spectr-markdown li {
+  margin: 0.2rem 0;
+}
+
+.spectr-markdown li > ul,
+.spectr-markdown li > ol {
+  margin: 0.2rem 0;
+}
+
+.spectr-markdown pre {
+  margin: 0.65rem 0;
+}
+
+.spectr-markdown code {
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: color-mix(in srgb, Canvas 90%, CanvasText 10%);
+}
+
+.spectr-markdown pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.spectr-markdown a {
+  color: LinkText;
+}
+
+.spectr-markdown blockquote {
+  margin: 0.5rem 0;
+  padding-left: 0.85rem;
+  border-left: 3px solid color-mix(in srgb, CanvasText 20%, transparent);
+  color: color-mix(in srgb, CanvasText 82%, Canvas 18%);
+}
+
+.spectr-md-heading {
+  margin: 0.75rem 0 0.35rem;
+  font-weight: 600;
+}
+
+p[type="definition"] > .spectr-markdown--definition-body {
+  display: block;
+  margin-top: 0.2rem;
 }

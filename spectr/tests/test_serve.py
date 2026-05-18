@@ -69,10 +69,20 @@ def test_spec_wrapper_and_raw_and_static(serve_root: Path) -> None:
         with urllib.request.urlopen(f"{base}/__spectr__/view.css") as r:
             css = r.read().decode("utf-8")
         assert "body" in css
+        assert "#spectr-doc-nav" in css
+
+        with urllib.request.urlopen(f"{base}/__spectr__/view.js") as r:
+            view_js = r.read().decode("utf-8")
+        assert "spectrEnhanceView" in view_js
+        assert "renderAllMarkdown" in view_js
 
         with urllib.request.urlopen(f"{base}/__spectr__/chrome.js") as r:
             js = r.read().decode("utf-8")
         assert "spectr-view-css" in js
+        assert "spectr-view-js" in js
+        assert "spectr-markdown-it" in js
+        assert "dompurify" in js.lower()
+        assert "jquery" in js.lower()
 
         with urllib.request.urlopen(f"{base}/plain.txt") as r:
             assert r.read() == b"hi"

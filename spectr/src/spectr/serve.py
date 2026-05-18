@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlencode, urlparse
 _SPECTR_PREFIX = "/__spectr__/"
 _STATIC_FILES = {
     "view.css": ("view.css", "text/css; charset=utf-8"),
+    "view.js": ("view.js", "application/javascript; charset=utf-8"),
     "chrome.css": ("chrome.css", "text/css; charset=utf-8"),
     "chrome.js": ("chrome.js", "application/javascript; charset=utf-8"),
 }
