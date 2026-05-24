@@ -9,7 +9,7 @@ body {
   box-sizing: border-box;
   margin: 0 auto;
   padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
-  max-width: 52rem;
+  width: 80%;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell,
     "Noto Sans", sans-serif;
   font-size: 1rem;
@@ -217,12 +217,61 @@ p[type="acceptance-criteria"][sid]::before {
   color: color-mix(in srgb, CanvasText 82%, Canvas 18%);
 }
 
-.spectr-md-heading {
-  margin: 0.75rem 0 0.35rem;
+.spectr-markdown h1,
+.spectr-markdown h2,
+.spectr-markdown h3,
+.spectr-markdown h4 {
+  line-height: 1.25;
+}
+
+.spectr-markdown h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.75rem;
+}
+
+.spectr-markdown h2 {
+  margin: 2rem 0 0.65rem;
+  font-size: 1.35rem;
+}
+
+.spectr-markdown h3 {
+  margin: 1.35rem 0 0.45rem;
+  font-size: 1.1rem;
+}
+
+.spectr-markdown h4 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
+}
+
+.spectr-markdown h5 {
+  margin: 0.85rem 0 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.spectr-markdown h6 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
 }
 
 p[type="definition"] > .spectr-markdown--definition-body {
   display: block;
   margin-top: 0.2rem;
+}
+
+.spectr-mermaid {
+  margin: 1rem 0 1.25rem;
+  overflow-x: auto;
+}
+
+.spectr-mermaid pre.mermaid {
+  margin: 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
 }

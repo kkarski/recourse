@@ -97,6 +97,35 @@ def _validate_definition_p(p: etree._Element) -> None:
             )
 
 
+def _validate_term_fact_model_div(div: etree._Element) -> None:
+    mermaid_ps: list[etree._Element] = []
+    for ch in div:
+        if ch.tag != "p":
+            raise ValueError(
+                'term-fact-model div may only contain <p type="mermaid" diagram="term-fact-model">'
+            )
+        if (ch.get("type") or "").strip() != "mermaid":
+            raise ValueError(
+                'term-fact-model div <p> must have type="mermaid"'
+            )
+        if (ch.get("diagram") or "").strip() != "term-fact-model":
+            raise ValueError(
+                'term-fact-model div <p> must have diagram="term-fact-model"'
+            )
+        if not get_text_content(ch).strip():
+            raise ValueError("term-fact-model mermaid <p> must have non-empty erDiagram source")
+        mermaid_ps.append(ch)
+    if len(mermaid_ps) != 1:
+        raise ValueError(
+            'term-fact-model div must contain exactly one <p type="mermaid" diagram="term-fact-model">'
+        )
+    src = get_text_content(mermaid_ps[0]).strip()
+    if not src.startswith("erDiagram"):
+        raise ValueError(
+            'term-fact-model diagram must be Mermaid erDiagram source (starts with "erDiagram")'
+        )
+
+
 def _validate_definitions_div(div: etree._Element) -> None:
     for ch in div:
         if ch.tag != "p":
@@ -261,6 +290,8 @@ def assert_valid_spec(root: etree._Element) -> None:
             seen_unique_body_div_types.add(bt)
         if bt == "definitions":
             _validate_definitions_div(ch)
+        elif bt == "term-fact-model":
+            _validate_term_fact_model_div(ch)
         elif bt == "use-case":
             _validate_use_case_div(ch)
         elif bt == "business-rules":

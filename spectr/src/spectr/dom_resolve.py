@@ -52,6 +52,19 @@ def br_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     return None
 
 
+def tfm_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
+    el = find_by_dom_id(root, node_id)
+    if el is None:
+        return None
+    if (
+        el.tag == "p"
+        and el.get("type") == "mermaid"
+        and (el.get("diagram") or "").strip() == "term-fact-model"
+    ):
+        return (el.get("sid") or "").strip() or None
+    return None
+
+
 def def_sid_from_dom_id(root: etree._Element, node_id: str) -> str | None:
     el = find_by_dom_id(root, node_id)
     if el is None:

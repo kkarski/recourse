@@ -27,6 +27,7 @@ from spectr.xmlio import (
 _BODY_BLOCK_ORDER = (
     "references",
     "definitions",
+    "term-fact-model",
     "use-case",
     "business-rules",
     "acceptance-criteria",
@@ -292,6 +293,7 @@ def _ensure_body_block_div(body: etree._Element, block_type: str) -> etree._Elem
 _PRUNABLE_SECTION_DIV_TYPES = frozenset(
     {
         "definitions",
+        "term-fact-model",
         "business-rules",
         "acceptance-criteria",
         "questions",
@@ -340,6 +342,8 @@ def _section_container_is_empty(div: etree._Element) -> bool:
         return not any(
             ch.tag == "p" and (ch.get("type") or "").strip() == "definition" for ch in div
         )
+    if bt == "term-fact-model":
+        return _term_fact_model_mermaid_p(div) is None
     if bt == "business-rules":
         return not any(
             ch.tag == "p" and (ch.get("type") or "").strip() == "business-rule" for ch in div
@@ -1190,6 +1194,148 @@ def def_delete(root: etree._Element, def_id: str) -> bool:
     return True
 
 
+# --- term-fact-model (body div type=term-fact-model; singleton ER diagram) ---
+
+_TFM_DIAGRAM_KIND = "term-fact-model"
+
+
+def _term_fact_model_div(body: etree._Element) -> etree._Element | None:
+    for child in body:
+        if child.tag == "div" and child.get("type") == "term-fact-model":
+            return child
+    return None
+
+
+def _term_fact_model_mermaid_p(div: etree._Element | None) -> etree._Element | None:
+    if div is None or div.get("type") != "term-fact-model":
+        return None
+    found: etree._Element | None = None
+    for ch in div:
+        if ch.tag != "p" or (ch.get("type") or "").strip() != "mermaid":
+            continue
+        if (ch.get("diagram") or "").strip() != _TFM_DIAGRAM_KIND:
+            continue
+        if found is not None:
+            return found
+        found = ch
+    return found
+
+
+def _validate_term_fact_model_source(source: str) -> str:
+    text = (source or "").strip()
+    if not text:
+        raise ValueError("term-fact-model diagram source must be non-empty")
+    if not text.startswith("erDiagram"):
+        raise ValueError(
+            'term-fact-model diagram must be Mermaid erDiagram source (first line starts with "erDiagram")'
+        )
+    return text
+
+
+def tfm_present(root: etree._Element) -> bool:
+    body = _body(root)
+    div = _term_fact_model_div(body)
+    p = _term_fact_model_mermaid_p(div)
+    return p is not None and bool(get_text_content(p).strip())
+
+
+def tfm_read(root: etree._Element) -> tuple[str, str] | None:
+    """``(sid, erDiagram source)`` or None if no term-fact-model section."""
+    body = _body(root)
+    div = _term_fact_model_div(body)
+    p = _term_fact_model_mermaid_p(div)
+    if p is None:
+        return None
+    sid = (p.get("sid") or "").strip()
+    return sid, get_text_content(p).strip()
+
+
+def _find_tfm_p(root: etree._Element, tfm_id: str) -> etree._Element | None:
+    body = _body(root)
+    div = _term_fact_model_div(body)
+    p = _term_fact_model_mermaid_p(div)
+    if p is None:
+        return None
+    sid = (p.get("sid") or "").strip()
+    if sid == tfm_id:
+        return p
+    return None
+
+
+def tfm_add(
+    root: etree._Element,
+    source: str,
+    *,
+    user_sid: str | None = None,
+) -> str:
+    if tfm_present(root):
+        raise ValueError(
+            "term-fact-model already exists; use tfm update to change the diagram"
+        )
+    text = _validate_term_fact_model_source(source)
+    body = _body(root)
+    existing = ids.collect_xml_ids(root)
+    if user_sid is not None:
+        tid = ids.require_unique_override_sid(user_sid, ids.collect_sids(root))
+    else:
+        tid = ids.new_prefixed_id(ids.PREFIX_TFM, existing)
+    existing.add(tid)
+    pid = _alloc_id(existing)
+    p = etree.Element(
+        "p",
+        type="mermaid",
+        diagram=_TFM_DIAGRAM_KIND,
+        id=pid,
+        sid=tid,
+        ts=ids.iso_now(),
+    )
+    set_text_content(p, text)
+    div = _ensure_body_block_div(body, "term-fact-model")
+    div.append(p)
+    ids.assert_entity_sid_singleton(root, tid)
+    return tid
+
+
+def tfm_update(
+    root: etree._Element,
+    source: str,
+    *,
+    tfm_id: str | None = None,
+) -> str | None:
+    text = _validate_term_fact_model_source(source)
+    if tfm_id is not None:
+        p = _find_tfm_p(root, tfm_id)
+    else:
+        body = _body(root)
+        div = _term_fact_model_div(body)
+        p = _term_fact_model_mermaid_p(div)
+    if p is None:
+        return None
+    set_text_content(p, text)
+    p.set("ts", ids.iso_now())
+    return (p.get("sid") or "").strip() or None
+
+
+def tfm_delete(root: etree._Element, tfm_id: str | None = None) -> bool:
+    body = _body(root)
+    div = _term_fact_model_div(body)
+    if div is None:
+        return False
+    p = _term_fact_model_mermaid_p(div)
+    if p is None:
+        prune_empty_section_containers_upward(root, div)
+        return False
+    if tfm_id is not None:
+        sid = (p.get("sid") or "").strip()
+        if sid != tfm_id:
+            return False
+    parent = div.getparent()
+    if parent is None:
+        return False
+    parent.remove(div)
+    return True
+
+
 # --- Q&A ---
 
 
@@ -1658,6 +1804,17 @@ def spec_to_markdown(root: etree._Element) -> str:
                 prev_sec = sec
             term_part = f" ({tm})" if tm else ""
             lines.append(f"- **{sid}**{term_part} {prev}")
+    tfm = tfm_read(root)
+    if tfm is not None:
+        tfm_sid, tfm_src = tfm
+        lines.append("")
+        lines.append("## Term fact model")
+        lines.append("")
+        lines.append(f"**{tfm_sid}**")
+        lines.append("")
+        lines.append("```mermaid")
+        lines.append(tfm_src)
+        lines.append("```")
     lines.append("")
     lines.append("## Use cases")
     for child in body:
