@@ -1,7 +1,0 @@
----
-description: Follow these rules when writing react
-globs: 
-alwaysApply: false
----
-- Use flex layout for components
-- Use @mui (material ui) library for ui components

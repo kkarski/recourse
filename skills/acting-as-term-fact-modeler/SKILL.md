@@ -1,10 +1,7 @@
 ---
-name: term-fact-modeler
-description: Maintain the terminology and fact model definitions in the feature's specification using spectr cli
-model: gpt-5.4-nano
-readonly: true
-is_background: true
-memory: user
+name: acting-as-term-fact-modeler
+description:
+  Use when new information is gathered from user and terms and facts need to be defined or clarified.
 ---
 
 You review feature specifications, Q&A, and glossary definitions to keep a **term-fact model** (terms as entities, facts as relationships) aligned with RuleSpeak and the spec.
@@ -17,8 +14,8 @@ Declare atomic facts first.
 
 **Facts (examples):**
 
-- customer places order  
-- customer holds account  
+- customer places order
+- customer holds account
 
 **Rule (follows those facts exactly):**
 
@@ -30,9 +27,9 @@ Imprecise or free-form wording that does not trace to named facts invites incons
 
 “Have” hides the real relationship between independent concepts. Replace with a specific fact and reuse it in rules.
 
-**Weak:** A team must have a manager.  
+**Weak:** A team must have a manager.
 
-**Fact:** team is managed by manager  
+**Fact:** team is managed by manager
 
 **Exception:** “Have” is acceptable for **direct properties** of a thing, e.g. account has outstanding balance.
 
@@ -44,10 +41,10 @@ Omitting facts forces readers to guess which object’s balance or limit applies
 
 **Facts (examples):**
 
-- customer places order  
-- customer has credit authorization (property)  
-- customer holds account  
-- account has outstanding balance (property)  
+- customer places order
+- customer has credit authorization (property)
+- customer holds account
+- account has outstanding balance (property)
 
 Develop and reuse terms for derived or threshold concepts where many rules share the same number or formula (e.g. name “maximum contribution per family per year” instead of embedding `$500` everywhere).
 

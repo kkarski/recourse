@@ -1,6 +1,6 @@
 {
   "name": "spectr",
-  "description": "A plugin to write better specifications",
+  "description": "Write better AI specifications to align agent with intent",
   "version": "0.1.2",
   "author": {
     "name": "Krzysztof Karski"
