@@ -14,6 +14,62 @@ TARGET_AGENTS="${HOME}/.claude/agents"
 SOURCE_RULES="${SPECTR_ROOT}/.claude-plugin/rules"
 TARGET_RULES="${HOME}/.claude-plugin/rules"
 
+INSTALL_ERRORS=0
+
+finalize_skill_copy() {
+  local skill_target="$1"
+  local skill_name="$2"
+
+  if [[ ! -f "${skill_target}/SKILL.md" ]]; then
+    echo "  Error: ${skill_name}: missing SKILL.md" >&2
+    INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
+    return
+  fi
+
+  if [[ ! -d "${skill_target}/scripts" ]]; then
+    return
+  fi
+
+  # Runtime hook state must not be copied from dev machines
+  rm -rf "${skill_target}/scripts/state"
+
+  local script
+  for script in "${skill_target}"/scripts/*.sh; do
+    [[ -e "$script" ]] || continue
+    chmod +x "$script"
+    echo "  Executable: ${script#"${skill_target}/"}"
+  done
+
+  if ! grep -q '^hooks:' "${skill_target}/SKILL.md"; then
+    return
+  fi
+
+  local rel hook_script
+  while IFS= read -r rel; do
+    [[ -z "$rel" ]] && continue
+    rel="${rel#./}"
+    hook_script="${skill_target}/${rel}"
+    if [[ ! -f "$hook_script" ]]; then
+      echo "  Error: ${skill_name}: hook script missing: ${rel}" >&2
+      INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
+    elif [[ ! -x "$hook_script" ]]; then
+      echo "  Error: ${skill_name}: hook script not executable: ${rel}" >&2
+      INSTALL_ERRORS=$((INSTALL_ERRORS + 1))
+    else
+      echo "  Hook ok: ${rel}"
+    fi
+  done < <(
+    awk '
+      /^---$/ { n++; next }
+      n == 1 && /^[[:space:]]+command:[[:space:]]+"\.\/scripts\// {
+        if (match($0, /"\.\/[^"]+"/)) {
+          print substr($0, RSTART + 1, RLENGTH - 2)
+        }
+      }
+    ' "${skill_target}/SKILL.md"
+  )
+}
+
 if [[ ! -d "$SOURCE" ]]; then
   echo "Error: skills folder not found at $SOURCE" >&2
   exit 1
@@ -52,9 +108,10 @@ for skill_dir in "$SOURCE"/*/; do
     fi
   fi
   
-  # Copy the entire skill folder
-  cp -r "$skill_source" "$skill_target"
+  # Copy the entire skill folder (preserve modes)
+  cp -a "$skill_source" "$skill_target"
   echo "  Copied $skill_source -> $skill_target"
+  finalize_skill_copy "$skill_target" "$skill_name"
   
   # Copy references/how_to_use_questions.md into the skill's references folder
   # This overwrites any existing file or symlink in the TARGET location only
@@ -128,6 +185,11 @@ fi
 
 if [[ ! -f "$REFERENCE_FILE" ]]; then
   echo "Warning: Reference file not found at $REFERENCE_FILE" >&2
+fi
+
+if [[ "$INSTALL_ERRORS" -gt 0 ]]; then
+  echo "Copy finished with ${INSTALL_ERRORS} skill install error(s)." >&2
+  exit 1
 fi
 
 echo "Copy complete."
