@@ -22,216 +22,207 @@ Review changed code (and its immediate callers) for recurring architecture and c
 
 **Good review output**: numbered findings with file/line references, each tagged Critical / Major / Minor, each stating the rule violated and what good looks like.
 
-**You MUST** read the project's architecture docs and coding standards, and search for existing implementations, before judging new code.
-
-The priorities below are ordered by how often they are the real problem. Work top-down.
-
-## Lifecycle hooks
-
-Hooks are defined in this skill's frontmatter and run only while this skill is active.
-
-1. **`PostToolUse` (`Edit|Write`)** — records that the session edited files.
-2. **`Stop`** — if edits were recorded and `stop_hook_active` is false, blocks stopping with a reason to run this review first; on the next stop (after review), allows completion and clears state.
-
-Invoke `/review-design` before implementation work when you want the post-edit review gate.
+**You MUST** read the project's architecture docs and coding standards before reviewing.
 
 ---
 
-## Priority 1 — Put behavior on the data that owns it
+## Priority 1 — Real domain modeling (not cosmetic OO)
 
-**You MUST** place logic on the type that holds the data it operates on, so data and behavior live together.
+**You MUST** model real business concepts with identity, invariants, and cohesive behavior — not rename loose functions into a class.
 
-**You MUST NOT** leave free-standing functions that take an object only to read its fields and compute a result (feature envy) — move them onto that object.
+**You MUST** place behavior on the type that owns the data: domain entities and value objects for business rules; repositories for persistence; application services only for cross-aggregate coordination.
 
-**You MUST NOT** accept a class as "object-oriented" just because functions were moved inside it; it must model a real concept with identity, invariants, and cohesive behavior.
+**You MUST NOT** create “noise classes” or “engines” that mix unrelated concerns (parsing, I/O, pagination, response mapping, storage) with no domain identity.
 
-**You MAY** keep a standalone function only when it is pure, has no natural owner, and you state why.
+**You MUST NOT** pass many unpacked primitives when a domain object already exists.
 
-**Example — bad**: `TaxCalculator.compute(order)` reaches into `order` to sum line items.
-**Example — good**: `order.totalWithTax()` — the order computes its own total.
+**You MAY** use a standalone function only when it is pure, stateless, and has no natural owner — and you MUST document why.
 
----
+**Example — bad**: `PricingEngine.calculate()`, `PricingEngine.loadFromDb()`, `PricingEngine.toJson()` — unrelated responsibilities, no pricing concept with identity.
 
-## Priority 2 — Reuse and extend existing concepts before adding new ones
-
-**You MUST** map a new requirement onto existing domain types and extend them when the concept already exists.
-
-**You MUST NOT** introduce a parallel concept for a fact the model already represents.
-
-**You MUST** call out, in any new design, which concepts are reused/extended and which are genuinely new.
-
-**Example — bad**: add `CompletionRecord` when `Verification` already captures the same outcome.
-**Example — good**: extend `Verification` with the new state and reference it.
+**Example — good**: `Order.applyDiscount(code)` enforces rules on the order; `OrderRepository.save(order)` handles persistence.
 
 ---
 
-## Priority 3 — Challenge necessity; remove dead and speculative code
+## Priority 2 — Thin entry points, fat domain layer
 
-**You MUST** ask "what calls this, and what breaks if it is deleted?" for every new endpoint, class, abstraction, and parameter.
+**You MUST** keep HTTP handlers, controllers, and CLI commands as orchestration only: parse input → delegate to domain/service → map output.
 
-**You MUST** flag code that exists only in case it is needed later, or that wraps something already callable, as removable.
+**You MUST** push URL building, error mapping, pagination, and validation into domain types or application services — not new private helpers in the controller file.
 
-**You MUST NOT** approve an abstraction (facade, builder, manager, indirection layer) that has one caller and adds no behavior.
+**You MUST NOT** add free-floating helper functions to controllers when an existing domain type or service already owns that concern.
 
-**You MAY** keep speculative seams when an imminent, documented requirement needs them.
+**You MUST NOT** put multi-repository branching logic in a controller; collapse it into a typed command object with a single `execute()` or an application service.
 
-**Example — bad**: `OrderFacade` whose every method forwards to `OrderService`; a delete endpoint nothing calls.
-**Example — good**: callers use `OrderService` directly; the unused endpoint is removed.
+**You MAY** keep a handler under ~15 lines of non-boilerplate logic.
 
----
+**Example — bad**: `OrderController` contains 40 lines deciding which repository to call based on request shape.
 
-## Priority 4 — Keep entry points thin
-
-**You MUST** keep controllers, handlers, and CLI commands to: parse input → delegate to a domain type or service → map output.
-
-**You MUST NOT** add private helper functions to a controller file when an existing domain type or service should own that logic.
-
-**You MUST NOT** put multi-repository branching in a controller; collapse it into a typed command with one `execute()`.
-
-**You MAY** keep a handler with up to ~15 lines of non-boilerplate logic.
-
-**Example — bad**: `OrderController` has 40 lines choosing a repository from request shape.
-**Example — good**: `CreateOrderCommand.from(request).execute()` — the handler is three lines.
+**Example — good**: `CreateOrderCommand.from(request).execute()` — controller is three lines.
 
 ---
 
-## Priority 5 — One implementation per concept (DRY)
+## Priority 3 — DRY: one concept, one implementation
 
-**You MUST NOT** duplicate the same logic across handlers, or expose two code paths for one operation that must stay identical.
+**You MUST** search the codebase for existing implementations before adding parallel logic.
 
-**You MUST NOT** register the same API surface from two modules with different behavior.
+**You MUST NOT** duplicate the same composition block across handlers (two redirect builders, two “build response” paths, two write paths for the same operation).
 
-**You MUST NOT** add a method that differs from an existing one only by name (a rename-only wrapper).
+**You MUST NOT** expose the same API endpoint from two modules with different behavior.
 
-**You MAY** extract shared behavior onto the owning type or a single service when call sites need identical semantics.
+**You MUST NOT** introduce parallel repository methods that differ only by name (wrapper around an existing internal method).
 
-**Example — bad**: export logic copied into the verifications path instead of reusing the invites path.
-**Example — good**: both call one `Exporter` with the same output contract.
+**You MAY** extract shared behavior onto the domain object or a single service when two call sites need identical semantics.
 
----
+**Example — bad**: `buildCheckoutUrl()` copied in `PaymentController` and `WebhookController` with drift over time.
 
-## Priority 6 — Cut indirection and file sprawl
-
-**You MUST NOT** split a workflow into many single-method passthrough types that add layers without behavior.
-
-**You MUST** consolidate thin wrappers and one-line methods onto the type that owns the workflow, reducing file count.
-
-**You MAY** keep a small type only when it carries state, enforces an invariant, or groups three or more related operations.
-
-**Example — bad**: `Storage`, `Registry`, `Scheduler`, `PhaseService` each with one method.
-**Example — good**: one `Pipeline` owns orchestration; step state lives on the job object.
+**Example — good**: `CheckoutSession.redirectUrl()` — one implementation, all callers use it.
 
 ---
 
-## Priority 7 — One responsibility per type (cohesion)
+## Priority 4 — No anemic models, no thin wrappers
 
-**You MUST** keep each type focused on a single concept and reason to change.
+**You MUST NOT** add one-line methods or classes whose only job is to forward to another call.
 
-**You MUST NOT** pollute a core data type with unrelated concerns (e.g. presentation/rendering logic on a domain state object).
+**You MUST NOT** split a workflow into many single-method types (`Storage`, `Registry`, `Scheduler`, `PhaseService`) that add indirection without behavior.
 
-**You MUST** move borrowed concerns to the type that owns them.
+**You MUST** consolidate thin wrappers by inlining onto the aggregate, pipeline, or domain type that owns the workflow.
 
-**Example — bad**: `SessionData` gains page-layout and copy-rendering helpers.
-**Example — good**: a `PageView` type owns rendering; `SessionData` holds session state only.
+**You MAY** keep a small type when it carries state, enforces invariants, or groups three or more related operations with shared context.
 
----
+**Example — bad**: `OrderSaver.save(order)` → `orderRepository.insert(order)` — adds nothing.
 
-## Priority 8 — Name for what things are
-
-**You MUST** choose names that reveal purpose and content, and match the conventions of sibling modules.
-
-**You MUST** make shared/generic components generically named, and specific components specifically named — not the reverse.
-
-**You MUST** make async/job/task identifiers reveal what is being processed.
-
-**Example — bad**: a reusable store named `ExportFileService`; a queued task named `task-001`.
-**Example — good**: `JobFileStorage` (reusable); `export-invoices-{jobId}` (says what runs).
+**Example — good**: `ImportPipeline` owns orchestration; step state lives on `ImportJob`, not five passthrough classes.
 
 ---
 
-## Priority 9 — Keep boundaries clean
+## Priority 5 — Layer boundaries and leaky abstractions
 
-**You MUST** keep shared infrastructure (HTTP clients, publishers, generic runners) free of domain-specific names, branches, and error text.
+**You MUST** keep shared infrastructure (HTTP clients, message publishers, generic batch runners) free of domain-specific knowledge.
 
-**You MUST** pass typed query/command objects across layers, not untyped maps of arbitrary keys.
+**You MUST NOT** put domain field names, domain-specific stubs, or domain error text into shared library modules.
 
-**You MUST NOT** expose internal mechanics to consumers (batch sizes, phase names, storage key formats, embedding dimensions).
+**You MUST** use typed query/command objects for filters and parameters — not untyped maps passed through layers.
 
-**Example — bad**: `HttpClient` contains `if (type === "invoice")` branches; a filter passed as an untyped map.
-**Example — good**: `HttpClient.post(url, body)` is generic; filters are a typed `Query` object.
+**You MUST NOT** expose implementation details to API consumers (internal batch sizes, pipeline phase names, storage key formats).
 
----
+**You MAY** place domain-specific serialization on domain request/response types at the boundary.
 
-## Priority 10 — Separate commands from queries
+**Example — bad**: `HttpClient` contains `if (resourceType === "invoice")` branches and invoice-specific retry messages.
 
-**You MUST** keep reads (GET, queries, list endpoints) free of side effects unless the spec documents otherwise.
-
-**You MUST NOT** persist, reconcile, or lazily create state inside a read.
-
-**You MUST** route reads through the read path (read replica / read model / query service) when one exists, and keep writes, locks, and read-after-write on the primary in one transaction.
-
-**Example — bad**: `GET /users/{id}/profile` creates the profile when missing.
-**Example — good**: `GET` returns current state; a `POST` or background job does the creation.
+**Example — good**: `HttpClient.post(url, body)` is generic; `InvoiceExporter.toPayload()` lives in the billing module.
 
 ---
 
-## Priority 11 — Make async work consistent and idempotent
+## Priority 6 — Command/query separation and side effects
 
-**You MUST** follow the project's established async pattern (stages, status tracking, idempotent handlers) and use the platform's retry semantics instead of long blocking polls in request handlers.
+**You MUST** treat read operations (GET, queries, list endpoints) as side-effect-free unless the specification explicitly documents otherwise.
 
-**You MUST** make handlers idempotent: emit an event once, dedupe by id, and never re-enqueue or re-create work that already exists.
+**You MUST NOT** persist, reconcile, or lazily initialize state inside read handlers.
 
-**You MUST NOT** return success from a job handler that did no work, or leave a lock or job in a non-terminal state.
+**You MUST** route read-only queries through the read path (read replica, read model, or query service) when the architecture provides one.
 
-**Example — bad**: a step re-enqueues an existing task and emits a duplicate "success" event.
-**Example — good**: `202 Accepted` + job id; client polls; the handler dedupes and releases locks on terminal states.
+**You MUST** keep writes, row locks, and read-after-write in the same transaction on the primary data source.
 
----
+**You MUST NOT** pass entities loaded in a read scope into a write scope without reloading within the write boundary.
 
-## Priority 12 — Place and order pipeline stages correctly
+**You MAY** force primary reads only for freshness-sensitive cases, with a documented reason.
 
-**You MUST** do each piece of work in the stage that consumes it, not an earlier stage "for convenience".
+**Example — bad**: `GET /users/123/profile` creates a profile row if missing.
 
-**You MUST** use one processing strategy per stage (batch throughout, or synchronous throughout) unless a documented exception exists.
-
-**Example — bad**: enrichment runs in `prepare` though only `process` uses it; a per-row sync call sits inside an otherwise batched pipeline.
-**Example — good**: enrichment runs in `process`; `prepare` only assembles batch input.
+**Example — good**: `GET` returns current state; `POST /users/123/profile/init` creates; background jobs handle deferred materialization.
 
 ---
 
-## Priority 13 — Align with the specification
+## Priority 7 — Async workflow consistency
 
-**You MUST** keep first-class domain fields as explicit fields, not generic key-value context, when the spec defines them.
+**You MUST** follow the project's established async pattern (stages, status tracking, idempotent handlers) for long-running work.
 
-**You MUST** flag redundant or contradictory concepts across spec, API contract, and model, and ask which is canonical before adding a third.
+**You MUST** use the platform's built-in retry semantics (queue retries, retryable errors) instead of long blocking polls inside request handlers.
 
-**Example — bad**: spec defines `customerId` as reserved; code stores it in `metadata.customer_id`.
-**Example — good**: spec, API, and model use the same term for the same fact.
+**You MUST NOT** acknowledge or delete a queued job while work is still in a retriable incomplete state.
+
+**You MUST NOT** block HTTP responses on worker polling; return an appropriate deferred status and let the client or queue retry.
+
+**You MUST** name workflow entry points consistently — one clear verb per step, not parallel `start` + `run` without reason.
+
+**You MAY** split phases into separate handlers when each phase has distinct retry, timeout, or idempotency needs.
+
+**Example — bad**: API handler loops 60s waiting for export file; returns 200 only when done.
+
+**Example — good**: API returns `202 Accepted` + job id; client polls `GET /jobs/{id}` or receives a webhook; worker retries on transient failure.
 
 ---
 
-## Priority 14 — Prove it: types, tests, hygiene, scope
+## Priority 8 — Module placement and duplicate surfaces
 
-**You MUST** require typed signatures on public methods and tests for each new sort order, pagination boundary, and retry/idempotency path — not only the happy path.
+**You MUST** place code in the bounded context that owns the concept — not a generic catch-all module.
 
-**You MUST NOT** approve silent early returns that mark work done while leaving resources held.
+**You MUST NOT** couple an analysis or utility module to a single consumer without an explicit boundary (interface, port, or documented integration point).
 
-**You MUST** flag a diff whose footprint far exceeds its stated change (e.g. a filter tweak touching dozens of files) and ask why.
+**You MUST** resolve duplicate API surfaces into one canonical endpoint with one behavior.
 
-**You MAY** note pre-existing type/static-analysis debt separately from issues introduced by the change.
+**You MUST NOT** open a separate transaction inside a guard or assertion that races with the caller's transaction (TOCTOU).
 
-**Example — bad**: "only filters changed" but 60+ files differ; a worker returns OK on null input.
-**Example — good**: the diff matches the change; terminal states fail loudly or transition to a defined error.
+**Example — bad**: `BillingService` and `InvoiceApi` both expose `POST /invoices` with different validation.
+
+**Example — good**: one `InvoiceController`; other modules call `InvoiceService` through a defined port.
+
+---
+
+## Priority 9 — Consistent processing strategy per stage
+
+**You MUST** use one processing strategy per pipeline stage (batch throughout, or synchronous throughout) unless a documented exception exists.
+
+**You MUST NOT** mix a slow synchronous call in an early stage with batch processing in later stages on the same hot path — that fails under load.
+
+**You MUST** split and merge batches internally; callers MUST NOT know per-strategy batch sizes or shard rules.
+
+**Example — bad**: `prepare` calls a synchronous enrichment API per row while `process` uses a batch job — prepare becomes the bottleneck.
+
+**Example — good**: `prepare` writes a batch input file; `process` submits and consumes batch output; no per-row sync calls on the hot path.
+
+---
+
+## Priority 10 — Specification and domain concept alignment
+
+**You MUST** verify first-class domain fields are not stored as generic key-value context when the spec defines them explicitly.
+
+**You MUST** flag redundant domain concepts and ask which is canonical before adding a third parallel type.
+
+**You MUST** check acceptance criteria, business rules, and architecture docs for contradictions before approving new endpoints or states.
+
+**You MAY** record spec gaps as Major findings when implementation exposes missing rules.
+
+**Example — bad**: spec defines `customerId` as a reserved field; implementation stuffs it into `metadata.customer_id`.
+
+**Example — good**: API contract, domain model, and persistence use the same term for the same fact.
+
+---
+
+## Priority 11 — Types, tests, and operational hygiene
+
+**You MUST** flag new untyped parameter bags where a typed query or command object exists or should exist.
+
+**You MUST** require tests for each new sort order, pagination boundary, and idempotent retry path — not only the happy path.
+
+**You MUST NOT** approve silent early returns in job handlers that mark work completed while leaving locks held or jobs orphaned.
+
+**You MAY** note pre-existing static-analysis or type debt separately from findings introduced by the change under review.
+
+**Example — bad**: worker returns success when batch reference is null; distributed lock never released.
+
+**Example — good**: terminal states always release resources; missing input fails loudly or transitions to a defined error state.
 
 ---
 
 ## Review procedure
 
-1. **Scope** — changed files and immediate callers; include sibling modules exposing the same surface.
-2. **Search first** — look for existing implementations, duplicate routes, and the type that should own new logic before judging it.
-3. **Classify** — Critical (correctness/security/data loss), Major (architecture/DRY/maintainability), Minor (naming/style).
-4. **Report** — findings first, ordered by severity; cite path and line; state the rule violated and what good looks like.
-5. **Do not fix** — unless the user explicitly asks.
+1. **Scope** — changed files and immediate callers only; include sibling modules that expose the same surface.
+2. **Search** — look for parallel implementations, duplicate route registrations, and existing domain methods before judging new code.
+3. **Classify** — tag each finding Critical (correctness/security/data loss), Major (architecture/DRY/maintainability), Minor (naming/style).
+4. **Report** — findings first, ordered by severity; cite path and line; state which rule was violated and what good looks like.
+5. **Do not fix** — unless the user explicitly asks to implement changes.
 
 ---
 
@@ -239,20 +230,14 @@ Invoke `/review-design` before implementation work when you want the post-edit r
 
 | Signal | Likely violation |
 |--------|------------------|
-| Function takes an object only to read its fields | Priority 1 — misplaced behavior |
-| New type for a fact the model already has | Priority 2 — redundant concept |
-| Class/endpoint with one caller and no behavior | Priority 3 — needless code |
-| Controller file grew with private helpers | Priority 4 — fat entry point |
-| Same logic or route in two places | Priority 5 — duplication |
-| Many one-method passthrough classes | Priority 6 — indirection sprawl |
-| Domain/presentation logic on a state object | Priority 7 — mixed responsibility |
-| Generic component with a specific name (or vice versa) | Priority 8 — naming |
-| Domain string or untyped map in shared lib | Priority 9 — leaky boundary |
-| Write/transaction on a pure read | Priority 10 — side effect in query |
-| Duplicate event/task, lock left held | Priority 11 — non-idempotent async |
-| Work done in the wrong stage; mixed strategies | Priority 12 — stage placement |
-| Reserved field stored as generic context | Priority 13 — spec drift |
-| Diff far larger than its stated change | Priority 14 — scope creep |
+| Controller file grew with new private helpers | Priority 2 — fat entry point |
+| New class named `*Engine` or `*Helper` | Priority 1 — cosmetic OO |
+| Same 20+ line block in two handlers | Priority 3 — DRY |
+| Write/transaction scope on a pure read/list | Priority 6 — side effects |
+| Domain-specific string in shared `client/` lib | Priority 5 — leaky abstraction |
+| `start` + `run` on same workflow step | Priority 7 — async inconsistency |
+| Second registration for same API path | Priority 8 — duplicate surface |
+| Job returns OK with no work done, lock held | Priority 11 — silent failure |
 
 ---
 
