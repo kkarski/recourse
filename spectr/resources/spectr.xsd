@@ -23,7 +23,10 @@
       (first UUID segment). Blank/missing @sid on known entities is filled when the spec is loaded.
 
       Intended body block order (enforced on load, not by XSD alone):
-      ul[@type=references]? → div (definitions, use-case, …) …
+      ul[@type=references]? → div (definitions, term-fact-model, use-case, …) …
+
+      term-fact-model div (intended): exactly one ``p type="mermaid"`` with ``diagram="term-fact-model"``
+      whose body is Mermaid ``erDiagram`` source (entity-relationship term/fact model).
 
       Optional top-level ``ul`` (type=references): li → a[@href] (external links for the change set).
 
@@ -68,6 +71,7 @@
       <xs:enumeration value="acceptance-criteria"/>
       <xs:enumeration value="feedback"/>
       <xs:enumeration value="definitions"/>
+      <xs:enumeration value="term-fact-model"/>
       <xs:enumeration value="plan"/>
     </xs:restriction>
   </xs:simpleType>
@@ -76,6 +80,7 @@
     <xs:restriction base="xs:string">
       <xs:enumeration value="desc"/>
       <xs:enumeration value="definition"/>
+      <xs:enumeration value="mermaid"/>
       <xs:enumeration value="business-rule"/>
       <xs:enumeration value="acceptance-criteria"/>
       <xs:enumeration value="feedback"/>
@@ -174,6 +179,11 @@
         <xs:attribute name="deprecated" type="xs:boolean" use="optional"/>
         <xs:attribute name="section" type="xs:string" use="optional"/>
         <xs:attribute name="term" type="xs:string" use="optional"/>
+        <xs:attribute name="diagram" type="xs:string" use="optional">
+          <xs:annotation>
+            <xs:documentation>On ``p type="mermaid"``: diagram kind (e.g. ``term-fact-model`` for body-level ER diagrams).</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
         <xs:attribute name="ph" type="xs:string" use="optional">
           <xs:annotation>
             <xs:documentation>Optional space-separated delivery phase sids (``ph-…``) on BR/AC paragraphs.</xs:documentation>

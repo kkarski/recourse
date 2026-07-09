@@ -9,11 +9,14 @@
     "https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js";
   var DOMPURIFY_URL =
     "https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js";
+  var MERMAID_URL =
+    "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js";
 
   var VIEW_SCRIPTS = [
     { id: "spectr-jquery", src: JQUERY_URL },
     { id: "spectr-markdown-it", src: MARKDOWN_IT_URL },
     { id: "spectr-dompurify", src: DOMPURIFY_URL },
+    { id: "spectr-mermaid", src: MERMAID_URL },
     { id: "spectr-view-js", src: "/__spectr__/view.js" },
   ];
 

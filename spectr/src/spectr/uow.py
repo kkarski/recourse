@@ -105,6 +105,13 @@ def ensure_missing_entity_sids(root: etree._Element) -> bool:
             fill_if_missing(el, ids.PREFIX_DEF)
 
     for el in root.iter("p"):
+        if (
+            el.get("type") == "mermaid"
+            and (el.get("diagram") or "").strip() == "term-fact-model"
+        ):
+            fill_if_missing(el, ids.PREFIX_TFM)
+
+    for el in root.iter("p"):
         if el.get("type") == "business-rule":
             fill_if_missing(el, ids.PREFIX_BR)
 

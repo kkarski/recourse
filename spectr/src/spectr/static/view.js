@@ -7,6 +7,7 @@
 
   var SECTION_H2 = {
     definitions: "Definitions",
+    "term-fact-model": "Term fact model",
     "business-rules": "Business rules",
     "acceptance-criteria": "Acceptance criteria",
     questions: "Questions",
@@ -21,6 +22,19 @@
     "business-rules": "Business rules",
     "acceptance-criteria": "Acceptance criteria",
     questions: "Questions",
+  };
+
+  var UC_STRUCTURED_P_HEADINGS = {
+    "scope-preconditions": "Scope & preconditions",
+    trigger: "Trigger",
+    "main-flow": "Main flow",
+    "post-conditions": "Post conditions",
+  };
+
+  var UC_FLOW_P_TYPES = {
+    "scope-preconditions": true,
+    "main-flow": true,
+    "post-conditions": true,
   };
 
   var MARKDOWN_P_TYPES = [
@@ -92,9 +106,18 @@
       insertHeading(doc, uc.firstChild || uc, "h2", label, idHint);
     }
 
-    var trigger = uc.querySelector(':scope > p[type="trigger"]');
-    if (trigger) {
-      insertHeading(doc, trigger, "h4", "Trigger", "trigger");
+    Object.keys(UC_STRUCTURED_P_HEADINGS).forEach(function (ptype) {
+      var el = uc.querySelector(':scope > p[type="' + ptype + '"]');
+      if (el) {
+        insertHeading(doc, el, "h4", UC_STRUCTURED_P_HEADINGS[ptype], ptype);
+      }
+    });
+
+    if (!uc.querySelector(':scope > p[type="main-flow"]')) {
+      var legacyFlow = uc.querySelector(":scope > p:not([type])");
+      if (legacyFlow) {
+        insertHeading(doc, legacyFlow, "h4", "Main flow", "main-flow");
+      }
     }
 
     Array.prototype.forEach.call(uc.querySelectorAll(":scope > div[type]"), function (nested) {
@@ -129,26 +152,48 @@
   }
 
   function createMarkdownRenderer(win) {
-    var md = new win.markdownit({ html: false, linkify: true, breaks: false });
-    md.renderer.rules.heading_open = function (tokens, idx) {
-      var level = tokens[idx].tag.slice(1);
-      return '<p class="spectr-md-heading" data-level="' + level + '"><strong>';
-    };
-    md.renderer.rules.heading_close = function () {
-      return "</strong></p>";
-    };
-    return md;
+    return new win.markdownit({ html: false, linkify: true, breaks: false });
   }
 
   function sanitizeMarkdownHtml(win, html) {
     return win.DOMPurify.sanitize(html, {
-      ADD_ATTR: ["data-level", "target", "rel"],
+      ADD_ATTR: ["target", "rel"],
       ADD_TAGS: ["code", "pre"],
     });
   }
 
+  function dedentMarkdownSource(source) {
+    var lines = String(source || "").replace(/\r\n/g, "\n").split("\n");
+    var indents = [];
+    lines.forEach(function (line) {
+      if (!line.trim()) {
+        return;
+      }
+      var m = line.match(/^(\s+)/);
+      if (m) {
+        indents.push(m[1].length);
+      }
+    });
+    if (!indents.length) {
+      return lines.join("\n").trim();
+    }
+    var strip = Math.min.apply(null, indents);
+    return lines
+      .map(function (line) {
+        if (!line.trim()) {
+          return "";
+        }
+        if (line.length >= strip && /^\s+$/.test(line.slice(0, strip))) {
+          return line.slice(strip);
+        }
+        return line;
+      })
+      .join("\n")
+      .trim();
+  }
+
   function renderMarkdownSource(md, purify, source) {
-    var text = (source || "").trim();
+    var text = dedentMarkdownSource(source);
     if (!text) {
       return "";
     }
@@ -160,12 +205,57 @@
     el.innerHTML = html;
   }
 
+  function isUseCaseFlowParagraph(p) {
+    var pt = (p.getAttribute("type") || "").trim();
+    if (UC_FLOW_P_TYPES[pt]) {
+      return true;
+    }
+    if (pt) {
+      return false;
+    }
+    var parent = p.parentElement;
+    return !!(parent && parent.getAttribute("type") === "use-case");
+  }
+
+  function isBlockMarkdownParagraph(p) {
+    if ((p.getAttribute("type") || "").trim() === "desc") {
+      return true;
+    }
+    return isUseCaseFlowParagraph(p);
+  }
+
+  function replaceWithMarkdownBlock(p, html) {
+    var doc = p.ownerDocument;
+    var block = doc.createElement("div");
+    block.className = "spectr-markdown";
+    var id = p.getAttribute("id");
+    if (id) {
+      block.id = id;
+    }
+    Array.prototype.forEach.call(p.attributes, function (attr) {
+      if (attr.name === "id" || attr.name === "type") {
+        return;
+      }
+      block.setAttribute(attr.name, attr.value);
+    });
+    block.innerHTML = html;
+    p.parentNode.replaceChild(block, p);
+  }
+
   function renderPlainParagraph(p, md, purify) {
     var html = renderMarkdownSource(md, purify, p.textContent);
     if (!html) {
       return;
     }
     setRenderedHtml(p, html);
+  }
+
+  function renderBlockMarkdownParagraph(p, md, purify) {
+    var html = renderMarkdownSource(md, purify, p.textContent);
+    if (!html) {
+      return;
+    }
+    replaceWithMarkdownBlock(p, html);
   }
 
   function definitionBodyText(p) {
@@ -215,6 +305,44 @@
     }
   }
 
+  function renderMermaidDiagrams(doc) {
+    var win = doc.defaultView;
+    if (!win || !win.mermaid) {
+      return;
+    }
+    var nodes = doc.body.querySelectorAll('p[type="mermaid"]');
+    if (!nodes.length) {
+      return;
+    }
+    win.mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      er: { useMaxWidth: true },
+    });
+    Array.prototype.forEach.call(nodes, function (p) {
+      var source = (p.textContent || "").trim();
+      if (!source) {
+        return;
+      }
+      var host = doc.createElement("div");
+      host.className = "spectr-mermaid";
+      var id = p.getAttribute("id");
+      if (id) {
+        host.id = id;
+      }
+      var pre = doc.createElement("pre");
+      pre.className = "mermaid";
+      pre.textContent = source;
+      host.appendChild(pre);
+      p.parentNode.replaceChild(host, p);
+    });
+    try {
+      win.mermaid.run({ querySelector: ".spectr-mermaid pre.mermaid" });
+    } catch (_err) {
+      /* leave source pre in place if render fails */
+    }
+  }
+
   function renderAllMarkdown(doc) {
     var win = doc.defaultView;
     if (!win || !win.markdownit || !win.DOMPurify) {
@@ -224,10 +352,6 @@
     var purify = function (html) {
       return sanitizeMarkdownHtml(win, html);
     };
-
-    doc.body.querySelectorAll('p[type="desc"]').forEach(function (p) {
-      renderPlainParagraph(p, md, purify);
-    });
 
     doc.body.querySelectorAll('p[type="definition"]').forEach(function (p) {
       renderDefinitionParagraph(p, doc, md, purify);
@@ -242,15 +366,12 @@
       });
     });
 
-    doc.body.querySelectorAll('div[type="use-case"] > p:not([type="trigger"])').forEach(
-      function (p) {
-        var pt = (p.getAttribute("type") || "").trim();
-        if (pt) {
-          return;
-        }
-        renderPlainParagraph(p, md, purify);
+    doc.body.querySelectorAll("p").forEach(function (p) {
+      if (!isBlockMarkdownParagraph(p)) {
+        return;
       }
-    );
+      renderBlockMarkdownParagraph(p, md, purify);
+    });
 
     doc.body.querySelectorAll('ol[type="phase"] li[type="task"]').forEach(function (li) {
       var html = renderMarkdownSource(md, purify, li.textContent);
@@ -343,6 +464,7 @@
     usedIds = Object.create(null);
     enhanceBody(doc.body, doc);
     renderAllMarkdown(doc);
+    renderMermaidDiagrams(doc);
     buildNav(doc, $);
   }
 

@@ -1393,6 +1393,164 @@ def def_delete_cmd(
     click.echo(f"deleted {did}")
 
 
+# --- tfm (term-fact-model ER diagram; body-level singleton) ---
+
+_TFM_SOURCE_HELP = (
+    "Mermaid erDiagram source for the term/fact model (plain text, not a fenced code block). "
+    'Must start with "erDiagram". Entities are terms; relationship labels are facts.'
+)
+_TFM_WITH_SID_HELP = (
+    "Optional term-fact-model sid: any unique string. "
+    "Omit for auto tfm- + 8 lowercase hex digits."
+)
+
+
+@cli.group("tfm", invoke_without_command=True)
+@click.pass_context
+def tfm_cli(ctx: click.Context):
+    """Term-fact model is a single body-level Mermaid ER diagram of terms (entities) and facts (relationships).
+
+    Add, read, update, and delete the diagram under ``div type=term-fact-model``."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@tfm_cli.command("add")
+@click.option(
+    "-d",
+    "--desc",
+    "--diagram",
+    "source",
+    required=True,
+    help=_TFM_SOURCE_HELP,
+)
+@click.option("--with-sid", "user_sid", default=None, help=_TFM_WITH_SID_HELP)
+@click.option("--porcelain", "-p", is_flag=True)
+@click.pass_context
+def tfm_add_cmd(
+    ctx: click.Context,
+    source: str,
+    user_sid: str | None,
+    porcelain: bool,
+) -> None:
+    """Create ``div type=term-fact-model`` with one Mermaid erDiagram paragraph."""
+    obj = ctx.obj
+    path = _work(obj)
+    ut = (user_sid or "").strip() or None
+    try:
+        with _mutating(path) as root:
+            eid = spec_ops.tfm_add(root, source, user_sid=ut)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    _emit(porcelain, ids.PREFIX_TFM, eid)
+    if not porcelain:
+        click.echo(f"added term-fact-model {eid}")
+
+
+@tfm_cli.command("read")
+@click.option("--sid", "-s", "tfm_sid", default=None, help=_SID_HELP)
+@click.option("--id", "tfm_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def tfm_read_cmd(
+    ctx: click.Context, tfm_sid: str | None, tfm_dom_id: str | None
+) -> None:
+    """Print the term-fact-model sid and erDiagram source."""
+    obj = ctx.obj
+    root = _read_spec(_work(obj))
+    if tfm_sid or tfm_dom_id:
+        tid = _sid_or_dom_id(
+            root,
+            tfm_sid,
+            tfm_dom_id,
+            label="term-fact-model",
+            from_dom=dom_resolve.tfm_sid_from_dom_id,
+        )
+        row = spec_ops.tfm_read(root)
+        if row is None or row[0] != tid:
+            raise click.ClickException(f"unknown term-fact-model: {tid}")
+        sid, src = row
+    else:
+        row = spec_ops.tfm_read(root)
+        if row is None:
+            raise click.ClickException("no term-fact-model in this spec")
+        sid, src = row
+    click.echo(f"sid:\t{sid}")
+    click.echo(f"diagram:\t{src}")
+
+
+@tfm_cli.command("update")
+@click.option(
+    "-d",
+    "--desc",
+    "--diagram",
+    "source",
+    required=True,
+    help=_TFM_SOURCE_HELP,
+)
+@click.option("--sid", "-s", "tfm_sid", default=None, help=_SID_HELP)
+@click.option("--id", "tfm_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def tfm_update_cmd(
+    ctx: click.Context,
+    source: str,
+    tfm_sid: str | None,
+    tfm_dom_id: str | None,
+) -> None:
+    """Replace the erDiagram source for the existing term-fact-model."""
+    obj = ctx.obj
+    path = _work(obj)
+    tid: str | None = None
+    if tfm_sid or tfm_dom_id:
+        root_ro = _read_spec(path)
+        tid = _sid_or_dom_id(
+            root_ro,
+            tfm_sid,
+            tfm_dom_id,
+            label="term-fact-model",
+            from_dom=dom_resolve.tfm_sid_from_dom_id,
+        )
+    try:
+        with _mutating(path) as root:
+            out = spec_ops.tfm_update(root, source, tfm_id=tid)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    if out is None:
+        raise click.ClickException(
+            "no term-fact-model in this spec; use spectr tfm add first"
+        )
+    click.echo(f"updated {out}")
+
+
+@tfm_cli.command("delete")
+@click.option("--sid", "-s", "tfm_sid", default=None, help=_SID_HELP)
+@click.option("--id", "tfm_dom_id", default=None, help=_DOM_ID_HELP)
+@click.pass_context
+def tfm_delete_cmd(
+    ctx: click.Context, tfm_sid: str | None, tfm_dom_id: str | None
+) -> None:
+    """Remove the term-fact-model section from the spec."""
+    obj = ctx.obj
+    path = _work(obj)
+    tid: str | None = None
+    with _mutating(path) as root:
+        if tfm_sid or tfm_dom_id:
+            tid = _sid_or_dom_id(
+                root,
+                tfm_sid,
+                tfm_dom_id,
+                label="term-fact-model",
+                from_dom=dom_resolve.tfm_sid_from_dom_id,
+            )
+        if not spec_ops.tfm_delete(root, tid):
+            if tid:
+                raise click.ClickException(f"unknown term-fact-model: {tid}")
+            raise click.ClickException("no term-fact-model in this spec")
+    if tid:
+        click.echo(f"deleted {tid}")
+    else:
+        click.echo("deleted term-fact-model")
+
+
 # --- ac ---
 
 
