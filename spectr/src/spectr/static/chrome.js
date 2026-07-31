@@ -1,9 +1,13 @@
 /**
  * Injects Spectr view assets into the embedded spec document (same origin).
+ * Tailwind (@tailwindcss/browser) + Inter give a Catalyst-inspired look without React.
  */
 (function () {
   "use strict";
 
+  var INTER_CSS_URL = "https://rsms.me/inter/inter.css";
+  var TAILWIND_BROWSER_URL =
+    "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
   var JQUERY_URL = "https://code.jquery.com/jquery-3.7.1.min.js";
   var MARKDOWN_IT_URL =
     "https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js";
@@ -25,14 +29,14 @@
     head.appendChild(node);
   }
 
-  function injectStylesheet(doc) {
-    if (doc.getElementById("spectr-view-css")) {
+  function injectLink(doc, id, href, rel) {
+    if (doc.getElementById(id)) {
       return;
     }
     var link = doc.createElement("link");
-    link.id = "spectr-view-css";
-    link.rel = "stylesheet";
-    link.href = "/__spectr__/view.css";
+    link.id = id;
+    link.rel = rel || "stylesheet";
+    link.href = href;
     appendToHead(doc, link);
   }
 
@@ -78,6 +82,37 @@
     });
   }
 
+  function injectViewCss(doc, done) {
+    if (doc.getElementById("spectr-view-css")) {
+      if (typeof done === "function") {
+        done();
+      }
+      return;
+    }
+    fetch("/__spectr__/view.css")
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error("failed to load view.css");
+        }
+        return res.text();
+      })
+      .then(function (css) {
+        var style = doc.createElement("style");
+        style.id = "spectr-view-css";
+        style.type = "text/tailwindcss";
+        style.textContent = css;
+        appendToHead(doc, style);
+        if (typeof done === "function") {
+          done();
+        }
+      })
+      .catch(function (err) {
+        if (typeof done === "function") {
+          done(err);
+        }
+      });
+  }
+
   function runEnhance(doc) {
     var win = doc.defaultView;
     if (win && typeof win.spectrEnhanceView === "function") {
@@ -86,14 +121,26 @@
   }
 
   function injectView(doc) {
-    if (!doc.body) {
+    if (!doc.body || doc.body.dataset.spectrAssetsInjected) {
       return;
     }
-    injectStylesheet(doc);
-    injectScripts(doc, VIEW_SCRIPTS, 0, function (err) {
-      if (!err) {
-        runEnhance(doc);
+    doc.body.dataset.spectrAssetsInjected = "1";
+
+    injectLink(doc, "spectr-inter-css", INTER_CSS_URL);
+    injectScript(doc, "spectr-tailwind-browser", TAILWIND_BROWSER_URL, function (twErr) {
+      if (twErr) {
+        return;
       }
+      injectViewCss(doc, function (cssErr) {
+        if (cssErr) {
+          return;
+        }
+        injectScripts(doc, VIEW_SCRIPTS, 0, function (err) {
+          if (!err) {
+            runEnhance(doc);
+          }
+        });
+      });
     });
   }
 

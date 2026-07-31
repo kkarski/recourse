@@ -44,7 +44,92 @@ def _iframe_raw_url(request_path: str) -> str:
     return p.path + ("?" + qs if qs else "")
 
 
-def _render_wrapper(*, iframe_src: str, title: str, label: str) -> bytes:
+def _parent_href(request_path: str) -> str:
+    """Directory URL one level above ``request_path`` (always ends with ``/``)."""
+    path = unquote(urlparse(request_path).path)
+    parts = [p for p in path.split("/") if p]
+    if len(parts) <= 1:
+        return "/"
+    return "/" + "/".join(parts[:-1]) + "/"
+
+
+def _breadcrumb_segments(request_path: str) -> list[tuple[str, str | None]]:
+    """Labels and hrefs for the chrome breadcrumb.
+
+    Each tuple is ``(label, href)``. ``href`` is ``None`` for the current page.
+    """
+    path = unquote(urlparse(request_path).path)
+    parts = [p for p in path.split("/") if p]
+    crumbs: list[tuple[str, str | None]] = [("Spectr", "/")]
+    if not parts:
+        return crumbs
+    acc: list[str] = []
+    for i, part in enumerate(parts):
+        acc.append(part)
+        if i == len(parts) - 1:
+            crumbs.append((part, None))
+        else:
+            crumbs.append((part, "/" + "/".join(acc) + "/"))
+    return crumbs
+
+
+_BREADCRUMB_SEP = (
+    '<svg class="size-4 shrink-0 fill-current text-zinc-300 dark:text-zinc-600" '
+    'viewBox="0 0 16 16" aria-hidden="true">'
+    '<path d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 '
+    '3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z"/>'
+    "</svg>"
+)
+
+_PARENT_ICON = (
+    '<svg class="size-4 shrink-0 fill-current" viewBox="0 0 16 16" aria-hidden="true">'
+    '<path fill-rule="evenodd" clip-rule="evenodd" '
+    'd="M9.78 4.22a.75.75 0 0 1 0 1.06L7.06 8l2.72 2.72a.75.75 0 1 1-1.06 '
+    '1.06L5.47 8.53a.75.75 0 0 1 0-1.06l3.25-3.25a.75.75 0 0 1 1.06 0Z"/>'
+    "</svg>"
+)
+
+
+def _render_breadcrumb_html(request_path: str) -> str:
+    parent = _parent_href(request_path)
+    parts: list[str] = [
+        '<nav class="spectr-chrome-nav flex min-w-0 flex-1 items-center gap-x-2" '
+        'aria-label="Breadcrumb">',
+        f'<a href="{html.escape(parent, quote=True)}" '
+        'class="spectr-chrome-up inline-flex shrink-0 items-center gap-x-1.5 rounded-lg '
+        "px-2 py-1.5 text-sm/5 font-medium text-zinc-950 hover:bg-zinc-950/5 "
+        'dark:text-white dark:hover:bg-white/5" '
+        'title="Parent folder">',
+        _PARENT_ICON,
+        '<span class="hidden sm:inline">Parent</span>',
+        "</a>",
+        '<span class="hidden h-4 w-px shrink-0 bg-zinc-950/10 sm:block dark:bg-white/10" '
+        'aria-hidden="true"></span>',
+        '<ol class="flex min-w-0 items-center gap-x-2 overflow-hidden">',
+    ]
+    segments = _breadcrumb_segments(request_path)
+    for i, (label, href) in enumerate(segments):
+        if i:
+            parts.append(f'<li class="flex shrink-0 items-center" aria-hidden="true">{_BREADCRUMB_SEP}</li>')
+        safe_label = html.escape(label)
+        if href is None:
+            parts.append(
+                f'<li class="min-w-0 truncate text-sm/6 text-zinc-500 dark:text-zinc-400" '
+                f'aria-current="page">{safe_label}</li>'
+            )
+        else:
+            safe_href = html.escape(href, quote=True)
+            parts.append(
+                f'<li class="flex shrink-0 items-center">'
+                f'<a href="{safe_href}" '
+                f'class="text-sm/6 font-medium text-zinc-950 hover:underline '
+                f'dark:text-white">{safe_label}</a></li>'
+            )
+    parts.append("</ol></nav>")
+    return "".join(parts)
+
+
+def _render_wrapper(*, iframe_src: str, title: str, request_path: str) -> bytes:
     tpl = (
         importlib.resources.files("spectr")
         .joinpath("static/wrapper.html")
@@ -52,7 +137,7 @@ def _render_wrapper(*, iframe_src: str, title: str, label: str) -> bytes:
     )
     page = (
         tpl.replace("{{TITLE}}", html.escape(title))
-        .replace("{{LABEL}}", html.escape(label))
+        .replace("{{BREADCRUMB}}", _render_breadcrumb_html(request_path))
         .replace("{{IFRAME_SRC}}", html.escape(iframe_src))
     )
     return page.encode("utf-8")
@@ -116,7 +201,7 @@ def make_handler_class(root: Path):
                 body = _render_wrapper(
                     iframe_src=iframe_src,
                     title=title,
-                    label=label,
+                    request_path=self.path,
                 )
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")

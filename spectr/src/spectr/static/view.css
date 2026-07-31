@@ -1,277 +1,418 @@
-/* Typography for Spectr HTML specs inside the iframe (`spectr serve`; loaded via chrome.js). */
+/* Spectr spec view — Catalyst theme + IA-friendly reading layout. */
 
-:root {
-  color-scheme: light dark;
-  --spectr-nav-width: min(14rem, 26vw);
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans--font-feature-settings: "cv11";
+  --spectr-nav-width: 16.5rem;
+  --spectr-content-max: 48rem; /* ~768px — comfortable reading measure */
 }
 
-body {
-  box-sizing: border-box;
-  margin: 0 auto;
-  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
-  width: 80%;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell,
-    "Noto Sans", sans-serif;
-  font-size: 1rem;
-  line-height: 1.55;
+@layer base {
+  html {
+    @apply h-full bg-white text-zinc-950 antialiased dark:bg-zinc-900 dark:text-white;
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply box-border bg-white font-sans text-sm/6 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400;
+  }
+
+  /*
+   * Heading scale (Catalyst Heading / Subheading + scannable IA):
+   * h1 page title · h2 major section/use case · h3 subsection · h4 field label
+   */
+  h1 {
+    @apply mb-4 mt-0 max-w-[var(--spectr-content-max)] border-b border-zinc-950/10 pb-6 text-2xl/8 font-semibold tracking-tight text-zinc-950 dark:border-white/10 dark:text-white;
+  }
+
+  h2 {
+    @apply mb-3 mt-10 scroll-mt-6 text-lg/7 font-semibold tracking-tight text-zinc-950 dark:text-white;
+  }
+
+  h3 {
+    @apply mb-3 mt-8 scroll-mt-6 text-sm/6 font-semibold text-zinc-950 dark:text-white;
+  }
+
+  h4 {
+    @apply mb-2 mt-5 scroll-mt-6 text-xs/6 font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400;
+  }
+
+  a {
+    @apply font-medium text-zinc-950 underline decoration-zinc-950/40 underline-offset-2 hover:decoration-zinc-950 dark:text-white dark:decoration-white/40 dark:hover:decoration-white;
+  }
+
+  strong,
+  b {
+    @apply font-semibold text-zinc-950 dark:text-white;
+  }
+
+  code {
+    @apply rounded-sm border border-zinc-950/10 bg-zinc-950/[2.5%] px-1 py-0.5 font-mono text-[0.8125rem] font-medium text-zinc-950 dark:border-white/20 dark:bg-white/5 dark:text-white;
+  }
+
+  pre {
+    @apply overflow-x-auto rounded-lg bg-zinc-950/[2.5%] p-4 font-mono text-sm/6 text-zinc-950 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:text-white dark:ring-white/10;
+  }
+
+  pre code {
+    @apply border-0 bg-transparent p-0 text-inherit;
+  }
+
+  p {
+    @apply my-0;
+  }
+
+  ul,
+  ol {
+    @apply my-3 pl-5;
+  }
+
+  li {
+    @apply my-1.5;
+  }
+
+  hr {
+    @apply my-8 border-t border-zinc-950/5 dark:border-white/5;
+  }
 }
 
-body.spectr-view-enhanced {
-  padding-right: calc(var(--spectr-nav-width) + 2rem);
-}
+@layer components {
+  /* --- Page shell: sidebar + readable content column --- */
 
-h1,
-h2,
-h3,
-h4 {
-  line-height: 1.25;
-}
+  body.spectr-view-enhanced {
+    @apply ml-[var(--spectr-nav-width)] w-auto max-w-none px-6 pb-16 pt-8 sm:px-8 lg:px-10;
+  }
 
-h1 {
-  margin: 0 0 0.75rem;
-  font-size: 1.75rem;
-}
+  body.spectr-view-enhanced > :not(#spectr-doc-nav):not(.spectr-doc-nav) {
+    @apply max-w-[var(--spectr-content-max)];
+  }
 
-h2 {
-  margin: 2rem 0 0.65rem;
-  font-size: 1.35rem;
-}
+  /* Keep tabs full-bleed within the content column */
+  body.spectr-view-enhanced > .spectr-tabs {
+    @apply max-w-[var(--spectr-content-max)];
+  }
 
-h3 {
-  margin: 1.35rem 0 0.45rem;
-  font-size: 1.1rem;
-}
+  /* Lead description under title */
+  body.spectr-view-enhanced > h1 + .spectr-markdown {
+    @apply text-base/7 text-zinc-600 dark:text-zinc-300;
+  }
 
-h4 {
-  margin: 1rem 0 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
-}
+  /* --- Left sidebar (Catalyst Sidebar) --- */
 
-pre,
-code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-  font-size: 0.92em;
-}
+  #spectr-doc-nav,
+  .spectr-doc-nav {
+    @apply fixed inset-y-0 left-0 z-30 flex w-[var(--spectr-nav-width)] flex-col border-r border-zinc-950/5 bg-zinc-50 p-3 dark:border-white/5 dark:bg-zinc-950;
+  }
 
-pre {
-  overflow-x: auto;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
-}
+  .spectr-doc-nav-header {
+    @apply mb-3 border-b border-zinc-950/5 px-2 pb-3 dark:border-white/5;
+  }
 
-li {
-  margin: 0.25rem 0;
-}
+  .spectr-doc-nav-title {
+    @apply text-xs/5 font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400;
+  }
 
-/* --- Fixed document outline (built by view.js) --- */
+  .spectr-doc-nav-body {
+    @apply flex min-h-0 flex-1 flex-col overflow-y-auto py-1;
+  }
 
-#spectr-doc-nav {
-  position: fixed;
-  top: 1rem;
-  right: clamp(0.5rem, 2vw, 1.25rem);
-  z-index: 10;
-  box-sizing: border-box;
-  width: var(--spectr-nav-width);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  padding: 0.65rem 0.75rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-  border-radius: 8px;
-  background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
-  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
-}
+  .spectr-doc-nav-list {
+    @apply flex flex-col gap-0.5;
+  }
 
-.spectr-doc-nav-title {
-  margin: 0 0 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, CanvasText 55%, Canvas 45%);
-}
+  .spectr-doc-nav-list a.spectr-nav-item {
+    @apply flex w-full items-center rounded-lg px-2 py-1.5 text-left text-sm/5 font-medium text-zinc-700 no-underline decoration-transparent hover:bg-white hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/5 dark:hover:text-white;
+  }
 
-.spectr-doc-nav-list a {
-  display: block;
-  padding: 0.18rem 0 0.18rem 0.5rem;
-  text-decoration: none;
-  color: color-mix(in srgb, CanvasText 78%, Canvas 22%);
-  border-left: 2px solid transparent;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .spectr-doc-nav-list a.spectr-nav-item.active {
+    @apply bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-950/5 dark:bg-white/5 dark:text-white dark:ring-white/10;
+  }
 
-.spectr-doc-nav-list a:hover {
-  color: CanvasText;
-}
+  .spectr-doc-nav-list a.spectr-nav-h1 {
+    @apply pl-2 font-semibold;
+  }
 
-.spectr-doc-nav-list a.active {
-  font-weight: 600;
-  color: CanvasText;
-  border-left-color: color-mix(in srgb, CanvasText 45%, transparent);
-}
+  .spectr-doc-nav-list a.spectr-nav-h2 {
+    @apply pl-2;
+  }
 
-.spectr-doc-nav-list a.spectr-nav-h1 {
-  padding-left: 0;
-  margin-top: 0.15rem;
-}
+  .spectr-doc-nav-list a.spectr-nav-h3 {
+    @apply pl-4 text-xs/5 font-medium text-zinc-500 dark:text-zinc-400;
+  }
 
-.spectr-doc-nav-list a.spectr-nav-h2 {
-  padding-left: 0.55rem;
-}
+  .spectr-doc-nav-list a.spectr-nav-h3.active {
+    @apply text-zinc-950 dark:text-white;
+  }
 
-.spectr-doc-nav-list a.spectr-nav-h3 {
-  padding-left: 1.1rem;
-  font-size: 0.74rem;
-}
+  /* --- Top tabs --- */
 
-.spectr-doc-nav-list a.spectr-nav-h4 {
-  padding-left: 1.65rem;
-  font-size: 0.72rem;
-  opacity: 0.92;
-}
+  .spectr-tabs {
+    @apply mt-10;
+  }
 
-/* --- Glossary terms: bold label, colon, definition --- */
+  .spectr-tablist {
+    @apply flex gap-x-1 border-b border-zinc-950/10 dark:border-white/10;
+  }
 
-p[type="definition"] span[type="term"] {
-  font-weight: bold;
-}
+  .spectr-tab {
+    @apply -mb-px border-b-2 border-transparent px-3 pb-3 pt-1 text-sm/6 font-medium text-zinc-500 hover:border-zinc-950/15 hover:text-zinc-950 dark:text-zinc-400 dark:hover:border-white/15 dark:hover:text-white;
+  }
 
-p[type="definition"] span[type="term"]::after {
-  content: ": ";
-}
+  .spectr-tab.active,
+  .spectr-tab[aria-selected="true"] {
+    @apply border-zinc-950 font-semibold text-zinc-950 dark:border-white dark:text-white;
+  }
 
-/* --- Entity ids (BR, AC) before content --- */
+  .spectr-tab-panels {
+    @apply pt-8;
+  }
 
-p[type="business-rule"][sid]::before,
-p[type="acceptance-criteria"][sid]::before {
-  content: attr(sid) " ";
-  font-weight: bold;
-}
+  .spectr-tab-panel[hidden] {
+    display: none;
+  }
 
-/* --- Rendered Markdown (view.js + markdown-it) --- */
+  /* --- References --- */
 
-.spectr-markdown > :first-child {
-  margin-top: 0;
-}
+  ul[type="references"] {
+    @apply my-4 list-none space-y-2 border-l-2 border-zinc-950/10 pl-4 dark:border-white/10;
+  }
 
-.spectr-markdown > :last-child {
-  margin-bottom: 0;
-}
+  ul[type="references"] li {
+    @apply my-0 text-sm/6;
+  }
 
-.spectr-markdown p {
-  margin: 0.45rem 0;
-}
+  /* --- Definitions (description-list rhythm) --- */
 
-.spectr-markdown ul,
-.spectr-markdown ol {
-  margin: 0.45rem 0;
-  padding-left: 1.5rem;
-}
+  div[type="definitions"] {
+    @apply space-y-0;
+  }
 
-.spectr-markdown ul {
-  list-style: disc;
-}
+  /* Section labels inside definitions (Actors, Core entities, …) */
+  div[type="definitions"] > h3 {
+    @apply mb-3 mt-10 border-b border-zinc-950/5 pb-2 text-xs/6 font-semibold uppercase tracking-wider text-zinc-500 first:mt-0 dark:border-white/5 dark:text-zinc-400;
+  }
 
-.spectr-markdown ol {
-  list-style: decimal;
-}
+  p[type="definition"] {
+    @apply my-0 border-b border-zinc-950/[0.04] py-3.5 text-sm/6 text-zinc-500 last:border-b-0 dark:border-white/[0.04] dark:text-zinc-400;
+  }
 
-.spectr-markdown li {
-  margin: 0.2rem 0;
-}
+  p[type="definition"] span[type="term"] {
+    display: block;
+    @apply mb-1 font-semibold text-zinc-950 dark:text-white;
+  }
 
-.spectr-markdown li > ul,
-.spectr-markdown li > ol {
-  margin: 0.2rem 0;
-}
+  p[type="definition"] span[type="term"]::after {
+    content: none;
+  }
 
-.spectr-markdown pre {
-  margin: 0.65rem 0;
-}
+  p[type="definition"] > .spectr-markdown--definition-body {
+    display: block;
+    @apply text-sm/6 text-zinc-500 dark:text-zinc-400;
+  }
 
-.spectr-markdown code {
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
-  background: color-mix(in srgb, Canvas 90%, CanvasText 10%);
-}
+  p[type="definition"] > .spectr-markdown--definition-body > :first-child {
+    @apply mt-0;
+  }
 
-.spectr-markdown pre code {
-  padding: 0;
-  background: transparent;
-}
+  p[type="definition"] > .spectr-markdown--definition-body > p {
+    @apply my-0;
+  }
 
-.spectr-markdown a {
-  color: LinkText;
-}
+  .spectr-term-tip {
+    @apply relative cursor-help font-medium text-zinc-950 underline decoration-dotted decoration-zinc-950/40 underline-offset-2 dark:text-white dark:decoration-white/40;
+  }
 
-.spectr-markdown blockquote {
-  margin: 0.5rem 0;
-  padding-left: 0.85rem;
-  border-left: 3px solid color-mix(in srgb, CanvasText 20%, transparent);
-  color: color-mix(in srgb, CanvasText 82%, Canvas 18%);
-}
+  .spectr-term-tip-panel {
+    @apply pointer-events-none invisible absolute bottom-[calc(100%+0.4rem)] left-1/2 z-50 w-max max-w-xs -translate-x-1/2 rounded-lg bg-zinc-950 px-3 py-2 text-left opacity-0 shadow-lg ring-1 ring-white/10 transition duration-150 dark:bg-zinc-800;
+  }
 
-.spectr-markdown h1,
-.spectr-markdown h2,
-.spectr-markdown h3,
-.spectr-markdown h4 {
-  line-height: 1.25;
-}
+  .spectr-term-tip:hover .spectr-term-tip-panel,
+  .spectr-term-tip:focus .spectr-term-tip-panel,
+  .spectr-term-tip:focus-within .spectr-term-tip-panel {
+    @apply visible opacity-100;
+  }
 
-.spectr-markdown h1 {
-  margin: 0 0 0.75rem;
-  font-size: 1.75rem;
-}
+  .spectr-term-tip-title {
+    @apply block text-xs/5 font-semibold text-white;
+  }
 
-.spectr-markdown h2 {
-  margin: 2rem 0 0.65rem;
-  font-size: 1.35rem;
-}
+  .spectr-term-tip-body {
+    @apply mt-1 block text-xs/5 font-normal text-zinc-300;
+  }
 
-.spectr-markdown h3 {
-  margin: 1.35rem 0 0.45rem;
-  font-size: 1.1rem;
-}
+  /* --- Use cases as scannable cards --- */
 
-.spectr-markdown h4 {
-  margin: 1rem 0 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
-}
+  div[type="use-case"] {
+    @apply mb-10 rounded-xl bg-zinc-50/80 p-5 ring-1 ring-zinc-950/5 last:mb-0 dark:bg-white/[0.03] dark:ring-white/10 sm:p-6;
+  }
 
-.spectr-markdown h5 {
-  margin: 0.85rem 0 0.3rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
+  div[type="use-case"] > h2 {
+    @apply mb-4 mt-0 flex flex-wrap items-center gap-2 border-b border-zinc-950/5 pb-3 text-base/7 font-semibold dark:border-white/10;
+  }
 
-.spectr-markdown h6 {
-  margin: 0.75rem 0 0.25rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: color-mix(in srgb, CanvasText 85%, Canvas 15%);
-}
+  div[type="use-case"] > h3 {
+    @apply mb-3 mt-6 text-xs/6 font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400;
+  }
 
-p[type="definition"] > .spectr-markdown--definition-body {
-  display: block;
-  margin-top: 0.2rem;
-}
+  div[type="use-case"] > h4 {
+    @apply mb-2 mt-5;
+  }
 
-.spectr-mermaid {
-  margin: 1rem 0 1.25rem;
-  overflow-x: auto;
-}
+  div[type="use-case"] > .spectr-markdown {
+    @apply text-sm/6;
+  }
 
-.spectr-mermaid pre.mermaid {
-  margin: 0;
-  background: transparent;
-  border: none;
-  font-family: inherit;
+  /* Nested BR / AC / actors blocks */
+  div[type="use-case"] > div[type] {
+    @apply mt-5;
+  }
+
+  div[type="actors"],
+  div[type="preconditions"],
+  div[type="postconditions"] {
+    @apply space-y-2;
+  }
+
+  div[type="business-rules"],
+  div[type="acceptance-criteria"] {
+    @apply space-y-3;
+  }
+
+  /* --- Entity id badges (Catalyst Badge) --- */
+
+  .spectr-sid-badge {
+    @apply mr-1.5 inline-flex shrink-0 items-center rounded-md bg-zinc-600/10 px-1.5 py-0.5 align-middle font-mono text-[0.7rem]/5 font-medium tracking-tight text-zinc-700 dark:bg-white/5 dark:text-zinc-400;
+  }
+
+  .spectr-sid-badge--br {
+    @apply bg-sky-500/15 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400;
+  }
+
+  .spectr-sid-badge--ac {
+    @apply bg-lime-400/20 text-lime-800 dark:bg-lime-400/10 dark:text-lime-300;
+  }
+
+  .spectr-sid-badge--uc {
+    @apply bg-violet-500/15 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400;
+  }
+
+  p[type="business-rule"],
+  p[type="acceptance-criteria"] {
+    @apply my-0 rounded-lg bg-white px-3.5 py-3 text-sm/6 text-zinc-600 ring-1 ring-zinc-950/5 dark:bg-zinc-900/60 dark:text-zinc-300 dark:ring-white/10;
+  }
+
+  p[type="actor"],
+  p[type="precondition"],
+  p[type="postcondition"],
+  p[type="trigger"] {
+    @apply my-0 text-sm/6 text-zinc-600 dark:text-zinc-300;
+  }
+
+  p[type="trigger"] {
+    @apply rounded-lg border-l-2 border-amber-500/50 bg-amber-400/5 px-3 py-2 dark:bg-amber-400/10;
+  }
+
+  /* AC Given / When / Then */
+  p[type="acceptance-criteria"] .spectr-ac-clause--given,
+  p[type="acceptance-criteria"] .spectr-ac-clause--when,
+  p[type="acceptance-criteria"] .spectr-ac-clause--then {
+    display: block;
+    padding-left: 0;
+  }
+
+  p[type="acceptance-criteria"] .spectr-ac-clause--given {
+    @apply mt-2;
+  }
+
+  p[type="acceptance-criteria"] .spectr-ac-clause--when,
+  p[type="acceptance-criteria"] .spectr-ac-clause--then {
+    @apply mt-1.5;
+  }
+
+  p[type="acceptance-criteria"] .spectr-ac-clause--given .spectr-ac-kw,
+  p[type="acceptance-criteria"] .spectr-ac-clause--when .spectr-ac-kw,
+  p[type="acceptance-criteria"] .spectr-ac-clause--then .spectr-ac-kw {
+    @apply mr-1.5 inline-block min-w-[3.25rem] font-semibold text-zinc-950 dark:text-white;
+  }
+
+  /* --- Rendered Markdown (Catalyst Text) --- */
+
+  .spectr-markdown {
+    @apply text-sm/6 text-zinc-500 dark:text-zinc-400;
+  }
+
+  .spectr-markdown > :first-child {
+    @apply mt-0;
+  }
+
+  .spectr-markdown > :last-child {
+    @apply mb-0;
+  }
+
+  .spectr-markdown p {
+    @apply my-2.5;
+  }
+
+  .spectr-markdown ul,
+  .spectr-markdown ol {
+    @apply my-3 pl-5;
+  }
+
+  .spectr-markdown ul {
+    list-style: disc;
+  }
+
+  .spectr-markdown ol {
+    list-style: decimal;
+  }
+
+  .spectr-markdown li {
+    @apply my-1.5 pl-0.5;
+  }
+
+  .spectr-markdown li > ul,
+  .spectr-markdown li > ol {
+    @apply my-1.5;
+  }
+
+  .spectr-markdown pre {
+    @apply my-4;
+  }
+
+  .spectr-markdown a {
+    @apply font-medium text-zinc-950 underline decoration-zinc-950/40 underline-offset-2 hover:decoration-zinc-950 dark:text-white dark:decoration-white/40 dark:hover:decoration-white;
+  }
+
+  .spectr-markdown blockquote {
+    @apply my-3 border-l-2 border-zinc-950/10 pl-4 text-zinc-500 dark:border-white/10 dark:text-zinc-400;
+  }
+
+  .spectr-markdown h1 {
+    @apply mb-4 mt-0 text-2xl/8 font-semibold tracking-tight text-zinc-950 dark:text-white;
+  }
+
+  .spectr-markdown h2 {
+    @apply mb-3 mt-8 text-base/7 font-semibold text-zinc-950 dark:text-white;
+  }
+
+  .spectr-markdown h3 {
+    @apply mb-2 mt-6 text-sm/6 font-semibold text-zinc-950 dark:text-white;
+  }
+
+  .spectr-markdown h4 {
+    @apply mb-2 mt-5 text-xs/6 font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400;
+  }
+
+  .spectr-markdown h5,
+  .spectr-markdown h6 {
+    @apply mb-1.5 mt-4 text-sm/6 font-medium text-zinc-950 dark:text-white;
+  }
+
+  .spectr-mermaid {
+    @apply my-6 overflow-x-auto rounded-lg bg-white p-3 ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10;
+  }
+
+  .spectr-mermaid pre.mermaid {
+    @apply m-0 border-0 bg-transparent font-sans ring-0;
+  }
 }

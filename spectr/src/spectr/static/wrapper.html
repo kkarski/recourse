@@ -1,19 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{TITLE}}</title>
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+      --font-sans--font-feature-settings: "cv11";
+    }
+  </style>
   <link rel="stylesheet" href="/__spectr__/chrome.css" />
   <script src="/__spectr__/chrome.js" defer></script>
 </head>
-<body class="spectr-chrome">
-  <header class="spectr-chrome-bar">
-    <span class="spectr-chrome-brand">Spectr</span>
-    <span class="spectr-chrome-label">{{LABEL}}</span>
+<body class="spectr-chrome flex h-full flex-col bg-white font-sans text-zinc-950 antialiased dark:bg-zinc-900 dark:text-white">
+  <header class="spectr-chrome-bar flex shrink-0 items-center gap-x-4 border-b border-zinc-950/10 px-4 py-2 dark:border-white/10">
+    {{BREADCRUMB}}
   </header>
-  <main class="spectr-chrome-main">
-    <iframe class="spectr-spec-frame" title="Specification" src="{{IFRAME_SRC}}"></iframe>
+  <main class="spectr-chrome-main min-h-0 flex-1">
+    <iframe class="spectr-spec-frame block h-full w-full border-0" title="Specification" src="{{IFRAME_SRC}}"></iframe>
   </main>
 </body>
 </html>
